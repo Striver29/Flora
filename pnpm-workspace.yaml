@@ -3,3 +3,6 @@ packages:
   - services/*
   - packages/*
   - infra
+minimumReleaseAgeExclude:
+  - expo-router@57.0.11
+  - expo-symbols@57.0.2

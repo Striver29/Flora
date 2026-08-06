@@ -1,23 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockClient } from '../mockClient.js';
 import { createMemoryStorage } from '../storage.js';
 import { runClientContract } from './client.contract.test.js';
 
 /** Advance fake timers past the mock's max simulated latency (800ms), then await. */
 const settle = async (promise) => {
-  await vi.advanceTimersByTimeAsync(1000);
+  await jest.advanceTimersByTimeAsync(1000);
   return promise;
 };
 
 /** Wall-clock waiting under fake timers (drives the ~3s diagnosis flip). */
-const wait = (ms) => vi.advanceTimersByTimeAsync(ms);
+const wait = (ms) => jest.advanceTimersByTimeAsync(ms);
 
 describe('mockClient', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    jest.useFakeTimers();
   });
   afterEach(() => {
-    vi.useRealTimers();
+    jest.useRealTimers();
   });
 
   runClientContract(() => createMockClient({ storage: createMemoryStorage() }), { settle, wait });
@@ -30,9 +29,9 @@ describe('mockClient', () => {
         settled = true;
         return res;
       });
-      await vi.advanceTimersByTimeAsync(250);
+      await jest.advanceTimersByTimeAsync(250);
       expect(settled).toBe(false);
-      await vi.advanceTimersByTimeAsync(800);
+      await jest.advanceTimersByTimeAsync(800);
       expect(settled).toBe(true);
       const res = await promise;
       expect(res.ok).toBe(true);
@@ -43,7 +42,7 @@ describe('mockClient', () => {
       const first = createMockClient({ storage });
       const created = await settle(first.plants.create({ nickname: 'Persisted Fern' }));
       expect(created.ok).toBe(true);
-      await vi.advanceTimersByTimeAsync(600); // flush the 500ms debounce
+      await jest.advanceTimersByTimeAsync(600); // flush the 500ms debounce
       const raw = await storage.getItem('flora-mock-v1');
       expect(raw).toContain('Persisted Fern');
       const second = createMockClient({ storage });

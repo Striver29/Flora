@@ -1,0 +1,34 @@
+{
+  "tabs": {
+    "garden": "Garden",
+    "explore": "Explore",
+    "camera": "Identify",
+    "community": "Community",
+    "profile": "Profile"
+  },
+  "garden": {
+    "title": "My Garden",
+    "subtitle": "Your plants, happy and on schedule",
+    "filterAll": "All plants",
+    "emptyHint": "Tap the camera to identify your first plant"
+  },
+  "explore": {
+    "title": "Explore",
+    "hint": "Browse species and care guides"
+  },
+  "community": {
+    "title": "Community",
+    "hint": "Tips and help from fellow growers"
+  },
+  "camera": {
+    "title": "Identify a plant",
+    "hint": "Point at a leaf or flower for the best match",
+    "close": "Close"
+  },
+  "profile": {
+    "title": "Profile",
+    "language": "Language",
+    "english": "English",
+    "arabic": "العربية"
+  }
+}

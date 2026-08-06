@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import { appName } from '../index.js';
 
 describe('mobile placeholder', () => {
