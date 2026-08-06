@@ -31,6 +31,13 @@ importers:
         version: 4.1.10(vite@8.2.0)
 
   apps/mobile:
+    dependencies:
+      '@flora/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       vitest:
         specifier: ^4.1.10

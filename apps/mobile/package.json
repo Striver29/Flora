@@ -8,5 +8,9 @@
   },
   "devDependencies": {
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@flora/shared": "workspace:*",
+    "zod": "^4.4.3"
   }
 }

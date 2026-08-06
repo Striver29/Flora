@@ -1,0 +1,633 @@
+import { z } from 'zod';
+import {
+  CreatePlantSchema,
+  CreatePostSchema,
+  CreateScheduleSchema,
+  ErrorCode,
+  RegisterDeviceSchema,
+  SignupSchema,
+  fail,
+  ok,
+} from '@flora/shared';
+import { getPersistentStorage } from './storage.js';
+import { seedSession, seedUsers } from './seed/users.js';
+import { seedSpecies } from './seed/species.js';
+import { seedPlants, seedSchedules } from './seed/plants.js';
+import { seedComments, seedFollows, seedLikes, seedPosts } from './seed/posts.js';
+import { diagnosisFixtures, fixtureNames } from './seed/diagnoses.js';
+
+const STORAGE_KEY = 'flora-mock-v1';
+const PERSIST_DEBOUNCE_MS = 500;
+const DIAGNOSIS_COMPLETE_AFTER_MS = 3000;
+const LOW_CONFIDENCE_THRESHOLD = 0.55;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_WATER_EVERY_DAYS = 7;
+
+const IdSchema = z.string().min(1);
+const LoginSchema = SignupSchema;
+const CreateDiagnosisSchema = z.object({
+  plantId: z.string().optional(),
+  imageUri: z.string().min(1),
+});
+const CommentBodySchema = z.string().trim().min(1);
+const GrowthLogSchema = z
+  .object({ photoKey: z.string().optional(), note: z.string().optional() })
+  .refine((log) => Boolean(log.photoKey) || Boolean(log.note), {
+    message: 'a growth log needs a photo or a note',
+    path: ['note'],
+  });
+
+/** Deep-clone plain JSON data so callers can never mutate the store. */
+const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Create an isolated mock client instance.
+ * @param {{ storage?: { getItem: Function, setItem: Function, removeItem: Function } }} [options]
+ *   storage — AsyncStorage-compatible store; defaults to the registered persistent
+ *   storage (see storage.js). Tests inject createMemoryStorage() for isolation.
+ */
+export function createMockClient({ storage } = {}) {
+  let store = null;
+  let readyPromise = null;
+  let persistTimer = null;
+  let nextFixtureName = null;
+  let idCounter = 0;
+
+  const getStorage = () => storage ?? getPersistentStorage();
+
+  const freshStore = () =>
+    clone({
+      users: seedUsers,
+      session: seedSession,
+      species: seedSpecies,
+      plants: seedPlants,
+      schedules: seedSchedules,
+      growthLogs: [],
+      diagnoses: [],
+      posts: seedPosts,
+      comments: seedComments,
+      likes: seedLikes,
+      follows: seedFollows,
+    });
+
+  async function hydrate() {
+    try {
+      const raw = await getStorage().getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.users)) {
+          store = parsed;
+          return;
+        }
+      }
+    } catch {
+      // corrupted snapshot — fall through and reseed
+    }
+    store = freshStore();
+  }
+
+  function schedulePersist() {
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      getStorage()
+        .setItem(STORAGE_KEY, JSON.stringify(store))
+        .catch(() => {});
+    }, PERSIST_DEBOUNCE_MS);
+  }
+
+  /** Every public method: hydrate once, simulate network latency, then run. */
+  async function call(fn) {
+    if (!readyPromise) readyPromise = hydrate();
+    await readyPromise;
+    await delay(300 + Math.random() * 500);
+    return fn();
+  }
+
+  function makeId(prefix) {
+    idCounter += 1;
+    return `${prefix}_${Date.now().toString(36)}_${idCounter}`;
+  }
+
+  function parseWith(schema, input) {
+    const result = schema.safeParse(input);
+    if (result.success) return { data: result.data };
+    const issue = result.error.issues[0];
+    const path = issue.path.join('.');
+    return {
+      error: fail(ErrorCode.VALIDATION, path ? `${path}: ${issue.message}` : issue.message),
+    };
+  }
+
+  const publicUser = ({ id, username, displayName, climateZone }) => ({
+    id,
+    username,
+    displayName,
+    climateZone,
+  });
+
+  function currentUser() {
+    if (!store.session) return null;
+    return store.users.find((user) => user.id === store.session.userId) ?? null;
+  }
+
+  const notLoggedIn = () => fail(ErrorCode.UNAUTHORIZED, 'not logged in');
+
+  const likeCount = (postId) => store.likes.filter((like) => like.postId === postId).length;
+
+  const postView = (post) => ({
+    ...clone(post),
+    likeCount: likeCount(post.id),
+    commentCount: store.comments.filter((comment) => comment.postId === post.id).length,
+  });
+
+  return {
+    auth: {
+      /** Create an account and start a session. Validates SignupSchema. */
+      signup(input) {
+        return call(() => {
+          const { data, error } = parseWith(SignupSchema, input);
+          if (error) return error;
+          if (store.users.some((user) => user.username === data.username)) {
+            return fail(ErrorCode.VALIDATION, 'username: already taken');
+          }
+          const user = {
+            id: makeId('u'),
+            username: data.username,
+            password: data.password,
+            displayName: data.username,
+            climateZone: 'COASTAL',
+          };
+          store.users.push(user);
+          store.session = { userId: user.id, token: makeId('tok') };
+          schedulePersist();
+          return ok({ user: publicUser(user) });
+        });
+      },
+      /** Log in an existing user by username + password. */
+      login(input) {
+        return call(() => {
+          const { data, error } = parseWith(LoginSchema, input);
+          if (error) return error;
+          const user = store.users.find((candidate) => candidate.username === data.username);
+          if (!user || user.password !== data.password) {
+            return fail(ErrorCode.UNAUTHORIZED, 'invalid username or password');
+          }
+          store.session = { userId: user.id, token: makeId('tok') };
+          schedulePersist();
+          return ok({ user: publicUser(user) });
+        });
+      },
+      /** End the current session. */
+      logout() {
+        return call(() => {
+          store.session = null;
+          schedulePersist();
+          return ok(null);
+        });
+      },
+      /** The current session user, or null when logged out. */
+      me() {
+        return call(() => {
+          const user = currentUser();
+          return ok(user ? { user: publicUser(user) } : null);
+        });
+      },
+    },
+
+    species: {
+      /** Full species catalog. */
+      list() {
+        return call(() => ok(clone(store.species)));
+      },
+      /** One species by id. */
+      get(id) {
+        return call(() => {
+          const { error } = parseWith(IdSchema, id);
+          if (error) return error;
+          const species = store.species.find((entry) => entry.id === id);
+          return species
+            ? ok(clone(species))
+            : fail(ErrorCode.NOT_FOUND, `species ${id} not found`);
+        });
+      },
+    },
+
+    plants: {
+      /** The session user's plants. */
+      list() {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          return ok(clone(store.plants.filter((plant) => plant.ownerId === user.id)));
+        });
+      },
+      /** One plant with its schedules and growth logs. */
+      get(id) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const plant = store.plants.find((entry) => entry.id === id && entry.ownerId === user.id);
+          if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${id} not found`);
+          return ok({
+            ...clone(plant),
+            schedules: clone(store.schedules.filter((schedule) => schedule.plantId === plant.id)),
+            growthLogs: clone(store.growthLogs.filter((log) => log.plantId === plant.id)),
+          });
+        });
+      },
+      /** Add a plant. Validates CreatePlantSchema. */
+      create(input) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { data, error } = parseWith(CreatePlantSchema, input);
+          if (error) return error;
+          const plant = {
+            id: makeId('p'),
+            ownerId: user.id,
+            nickname: data.nickname,
+            speciesId: data.speciesId ?? null,
+            photoKey: data.photoKey ?? null,
+            createdAt: new Date().toISOString(),
+            lastWateredAt: null,
+            nextDueAt: null,
+          };
+          store.plants.push(plant);
+          schedulePersist();
+          return ok(clone(plant));
+        });
+      },
+      /**
+       * Record a watering. nextDueAt = now + intervalDays·24h where intervalDays =
+       * max(1, round(species.care.waterEveryDays × zoneMultiplier(user.climateZone))).
+       */
+      markWatered(plantId) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { error } = parseWith(IdSchema, plantId);
+          if (error) return error;
+          const plant = store.plants.find(
+            (entry) => entry.id === plantId && entry.ownerId === user.id,
+          );
+          if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${plantId} not found`);
+          const species = store.species.find((entry) => entry.id === plant.speciesId);
+          const waterEveryDays = species?.care.waterEveryDays ?? DEFAULT_WATER_EVERY_DAYS;
+          const multiplier = species?.zoneMultipliers?.[user.climateZone] ?? 1;
+          const intervalDays = Math.max(1, Math.round(waterEveryDays * multiplier));
+          const wateredAt = Date.now();
+          plant.lastWateredAt = new Date(wateredAt).toISOString();
+          plant.nextDueAt = new Date(wateredAt + intervalDays * DAY_MS).toISOString();
+          schedulePersist();
+          return ok({
+            plantId: plant.id,
+            wateredAt: plant.lastWateredAt,
+            nextDueAt: plant.nextDueAt,
+          });
+        });
+      },
+      /** Append a growth log entry (photo and/or note). */
+      addGrowthLog(plantId, input) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const idCheck = parseWith(IdSchema, plantId);
+          if (idCheck.error) return idCheck.error;
+          const { data, error } = parseWith(GrowthLogSchema, input);
+          if (error) return error;
+          const plant = store.plants.find(
+            (entry) => entry.id === plantId && entry.ownerId === user.id,
+          );
+          if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${plantId} not found`);
+          const log = {
+            id: makeId('gl'),
+            plantId: plant.id,
+            photoKey: data.photoKey ?? null,
+            note: data.note ?? null,
+            createdAt: new Date().toISOString(),
+          };
+          store.growthLogs.push(log);
+          schedulePersist();
+          return ok(clone(log));
+        });
+      },
+    },
+
+    schedules: {
+      /** Care schedules for one plant. */
+      list(plantId) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { error } = parseWith(IdSchema, plantId);
+          if (error) return error;
+          const plant = store.plants.find(
+            (entry) => entry.id === plantId && entry.ownerId === user.id,
+          );
+          if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${plantId} not found`);
+          return ok(clone(store.schedules.filter((schedule) => schedule.plantId === plantId)));
+        });
+      },
+      /** Add a care schedule. Validates CreateScheduleSchema. */
+      create(plantId, input) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const idCheck = parseWith(IdSchema, plantId);
+          if (idCheck.error) return idCheck.error;
+          const { data, error } = parseWith(CreateScheduleSchema, input);
+          if (error) return error;
+          const plant = store.plants.find(
+            (entry) => entry.id === plantId && entry.ownerId === user.id,
+          );
+          if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${plantId} not found`);
+          const schedule = {
+            id: makeId('sch'),
+            plantId: plant.id,
+            type: data.type,
+            intervalDays: data.intervalDays ?? null,
+            createdAt: new Date().toISOString(),
+          };
+          store.schedules.push(schedule);
+          schedulePersist();
+          return ok(clone(schedule));
+        });
+      },
+    },
+
+    diagnoses: {
+      /** Start an async diagnosis for a photo; completes ~3s later (see get()). */
+      create(input) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { data, error } = parseWith(CreateDiagnosisSchema, input);
+          if (error) return error;
+          const fixtureName =
+            nextFixtureName ?? fixtureNames[Math.floor(Math.random() * fixtureNames.length)];
+          nextFixtureName = null;
+          const diagnosis = {
+            id: makeId('dg'),
+            userId: user.id,
+            plantId: data.plantId ?? null,
+            imageUri: data.imageUri,
+            status: 'PENDING',
+            fixtureName,
+            createdAt: Date.now(),
+            result: null,
+            lowConfidence: null,
+          };
+          store.diagnoses.push(diagnosis);
+          schedulePersist();
+          return ok({ id: diagnosis.id, status: diagnosis.status });
+        });
+      },
+      /**
+       * Poll a diagnosis. Flips PENDING → COMPLETE once ~3s have elapsed, attaching
+       * the canned RecognitionResult; lowConfidence when confidence < 0.55.
+       */
+      get(id) {
+        return call(() => {
+          const { error } = parseWith(IdSchema, id);
+          if (error) return error;
+          const diagnosis = store.diagnoses.find((entry) => entry.id === id);
+          if (!diagnosis) return fail(ErrorCode.NOT_FOUND, `diagnosis ${id} not found`);
+          if (
+            diagnosis.status === 'PENDING' &&
+            Date.now() - diagnosis.createdAt >= DIAGNOSIS_COMPLETE_AFTER_MS
+          ) {
+            const result = clone(
+              diagnosisFixtures[diagnosis.fixtureName] ?? diagnosisFixtures.blurry,
+            );
+            diagnosis.status = 'COMPLETE';
+            diagnosis.result = result;
+            diagnosis.lowConfidence = result.health.confidence < LOW_CONFIDENCE_THRESHOLD;
+            schedulePersist();
+          }
+          return ok(
+            clone({
+              id: diagnosis.id,
+              plantId: diagnosis.plantId,
+              imageUri: diagnosis.imageUri,
+              status: diagnosis.status,
+              result: diagnosis.result,
+              lowConfidence: diagnosis.lowConfidence,
+            }),
+          );
+        });
+      },
+      /** Turn a completed diagnosis into a community HELP post. */
+      escalate(id) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { error } = parseWith(IdSchema, id);
+          if (error) return error;
+          const diagnosis = store.diagnoses.find((entry) => entry.id === id);
+          if (!diagnosis) return fail(ErrorCode.NOT_FOUND, `diagnosis ${id} not found`);
+          if (diagnosis.status !== 'COMPLETE') {
+            return fail(ErrorCode.VALIDATION, 'diagnosis is still processing — try again shortly');
+          }
+          const topIssue = diagnosis.result.health.issues[0]?.name ?? null;
+          const confidence = diagnosis.result.health.confidence;
+          const post = {
+            id: makeId('post'),
+            authorId: user.id,
+            type: 'HELP',
+            body: topIssue
+              ? `Need help with my plant — the diagnosis suggests "${topIssue}". Any advice?`
+              : 'Need help figuring out what is wrong with my plant. Any advice?',
+            images: [diagnosis.imageUri],
+            attachment: { imageUri: diagnosis.imageUri, topIssue, confidence },
+            createdAt: new Date().toISOString(),
+          };
+          store.posts.unshift(post);
+          schedulePersist();
+          return ok(postView(post));
+        });
+      },
+    },
+
+    posts: {
+      /** Community feed, optionally filtered by type ('GENERAL' | 'HELP'). */
+      list(filter = {}) {
+        return call(() => {
+          const type = filter?.type;
+          const posts = type ? store.posts.filter((post) => post.type === type) : store.posts;
+          return ok(posts.map(postView));
+        });
+      },
+      /** One post with its comments. */
+      get(id) {
+        return call(() => {
+          const { error } = parseWith(IdSchema, id);
+          if (error) return error;
+          const post = store.posts.find((entry) => entry.id === id);
+          if (!post) return fail(ErrorCode.NOT_FOUND, `post ${id} not found`);
+          return ok({
+            ...postView(post),
+            comments: clone(store.comments.filter((comment) => comment.postId === post.id)),
+          });
+        });
+      },
+      /** Publish a post. Validates CreatePostSchema (body and/or images required). */
+      create(input) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { data, error } = parseWith(CreatePostSchema, input);
+          if (error) return error;
+          const post = {
+            id: makeId('post'),
+            authorId: user.id,
+            type: 'GENERAL',
+            body: data.body ?? '',
+            images: data.images ?? [],
+            attachment: null,
+            createdAt: new Date().toISOString(),
+          };
+          store.posts.unshift(post);
+          schedulePersist();
+          return ok(postView(post));
+        });
+      },
+      /** Like a post (idempotent per user). */
+      like(id) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const post = store.posts.find((entry) => entry.id === id);
+          if (!post) return fail(ErrorCode.NOT_FOUND, `post ${id} not found`);
+          if (!store.likes.some((like) => like.postId === id && like.userId === user.id)) {
+            store.likes.push({ postId: id, userId: user.id });
+            schedulePersist();
+          }
+          return ok({ likeCount: likeCount(id) });
+        });
+      },
+      /** Remove a like. */
+      unlike(id) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const post = store.posts.find((entry) => entry.id === id);
+          if (!post) return fail(ErrorCode.NOT_FOUND, `post ${id} not found`);
+          store.likes = store.likes.filter(
+            (like) => !(like.postId === id && like.userId === user.id),
+          );
+          schedulePersist();
+          return ok({ likeCount: likeCount(id) });
+        });
+      },
+      /** Comment on a post. */
+      comment(postId, body) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const idCheck = parseWith(IdSchema, postId);
+          if (idCheck.error) return idCheck.error;
+          const { data, error } = parseWith(CommentBodySchema, body);
+          if (error) return error;
+          const post = store.posts.find((entry) => entry.id === postId);
+          if (!post) return fail(ErrorCode.NOT_FOUND, `post ${postId} not found`);
+          const comment = {
+            id: makeId('c'),
+            postId: post.id,
+            authorId: user.id,
+            body: data,
+            createdAt: new Date().toISOString(),
+          };
+          store.comments.push(comment);
+          schedulePersist();
+          return ok(clone(comment));
+        });
+      },
+    },
+
+    social: {
+      /** Follow another user. */
+      follow(userId) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { error } = parseWith(IdSchema, userId);
+          if (error) return error;
+          const target = store.users.find((entry) => entry.id === userId);
+          if (!target) return fail(ErrorCode.NOT_FOUND, `user ${userId} not found`);
+          if (target.id === user.id) return fail(ErrorCode.VALIDATION, 'cannot follow yourself');
+          if (
+            !store.follows.some(
+              (follow) => follow.followerId === user.id && follow.followeeId === target.id,
+            )
+          ) {
+            store.follows.push({ followerId: user.id, followeeId: target.id });
+            schedulePersist();
+          }
+          return ok({ following: true });
+        });
+      },
+      /** Unfollow a user. */
+      unfollow(userId) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { error } = parseWith(IdSchema, userId);
+          if (error) return error;
+          const target = store.users.find((entry) => entry.id === userId);
+          if (!target) return fail(ErrorCode.NOT_FOUND, `user ${userId} not found`);
+          store.follows = store.follows.filter(
+            (follow) => !(follow.followerId === user.id && follow.followeeId === target.id),
+          );
+          schedulePersist();
+          return ok({ following: false });
+        });
+      },
+    },
+
+    devices: {
+      /** Register a push token. Validates RegisterDeviceSchema. */
+      register(input) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { error } = parseWith(RegisterDeviceSchema, input);
+          if (error) return error;
+          return ok({ registered: true });
+        });
+      },
+    },
+
+    /**
+     * Mock-only: force the next diagnoses.create() to use a specific canned fixture.
+     * @param {'healthy-basil'|'diseased-tomato'|'blurry'} name
+     */
+    setNextDiagnosisFixture(name) {
+      if (!fixtureNames.includes(name)) {
+        throw new Error(
+          `unknown diagnosis fixture "${name}" — expected one of: ${fixtureNames.join(', ')}`,
+        );
+      }
+      nextFixtureName = name;
+    },
+
+    /** Mock-only: wipe the persisted snapshot and restore the seed data. */
+    async reset() {
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = null;
+      }
+      await getStorage().removeItem(STORAGE_KEY);
+      store = freshStore();
+      readyPromise = Promise.resolve();
+      return ok(null);
+    },
+  };
+}
+
+/** Default shared instance used by the app (persists via the registered storage). */
+export const mockClient = createMockClient();
