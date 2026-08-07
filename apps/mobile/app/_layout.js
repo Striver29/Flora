@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Baloo2_600SemiBold, Baloo2_700Bold } from '@expo-google-fonts/baloo-2';
 import { Mulish_400Regular, Mulish_600SemiBold, Mulish_700Bold } from '@expo-google-fonts/mulish';
@@ -17,6 +18,12 @@ import { colors } from '../src/theme.js';
 // On-device, the mock client persists through AsyncStorage (in tests/node it
 // falls back to the in-memory storage registered in src/api/storage.js).
 setPersistentStorage(AsyncStorage);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: false, staleTime: 30 * 1000, refetchOnWindowFocus: false },
+  },
+});
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -49,12 +56,12 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="camera" options={{ presentation: 'modal' }} />
       </Stack>
-    </>
+    </QueryClientProvider>
   );
 }

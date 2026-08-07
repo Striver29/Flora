@@ -8,9 +8,20 @@
   },
   "garden": {
     "title": "My Garden",
-    "subtitle": "Your plants, happy and on schedule",
-    "filterAll": "All plants",
-    "emptyHint": "Tap the camera to identify your first plant"
+    "greetingMorning": "Good morning, {{name}}",
+    "greetingAfternoon": "Good afternoon, {{name}}",
+    "greetingEvening": "Good evening, {{name}}",
+    "needWater_one": "{{count}} plant needs water today",
+    "needWater_other": "{{count}} plants need water today",
+    "allHappy": "All plants are happy today",
+    "emptyTitle": "Every jneineh starts with one pot",
+    "emptyBody": "Add your first plant and Flora will tell you how to keep it happy.",
+    "emptyCta": "Add your first plant",
+    "chip": {
+      "waterNow": "Water now",
+      "today": "Today",
+      "inDays": "in {{count}}d"
+    }
   },
   "explore": {
     "title": "Explore",
@@ -24,6 +35,13 @@
     "title": "Identify a plant",
     "hint": "Point at a leaf or flower for the best match",
     "close": "Close"
+  },
+  "addPlant": {
+    "title": "Add a plant",
+    "hint": "Photo identification lands in the diagnosis phase — hang tight."
+  },
+  "plant": {
+    "title": "Plant details"
   },
   "profile": {
     "title": "Profile",

@@ -16,3 +16,9 @@ jest.mock('expo-font', () => {
 jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageCode: 'en', textDirection: 'ltr' }],
 }));
+
+// expo-image is a native module; render a plain host element in tests.
+jest.mock('expo-image', () => {
+  const React = jest.requireActual('react');
+  return { Image: (props) => React.createElement('ExpoImage', props) };
+});

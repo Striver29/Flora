@@ -11,7 +11,7 @@ it('ar locale flips RTL and renders a translated string', async () => {
   await setLocale('ar');
   expect(forceRTL).toHaveBeenCalledWith(true);
   await renderRouter('./app', { initialUrl: '/' });
-  const arabicTitle = i18n.t('garden.title');
-  expect(arabicTitle).not.toBe('My Garden');
-  expect(await screen.findByText(arabicTitle)).toBeTruthy();
+  const arabicTab = i18n.t('tabs.garden');
+  expect(arabicTab).not.toBe('Garden');
+  expect(await screen.findByText(arabicTab)).toBeTruthy();
 });
