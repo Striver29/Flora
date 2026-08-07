@@ -13,7 +13,7 @@
     "android": {
       "edgeToEdgeEnabled": true
     },
-    "plugins": ["expo-router", "expo-localization", "expo-image"],
+    "plugins": ["expo-router", "expo-localization"],
     "extra": {
       "supportsRTL": true
     }
