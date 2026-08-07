@@ -26,3 +26,16 @@ export function needsWaterToday(nextDueAt, now = Date.now()) {
   const status = waterStatus(nextDueAt, now);
   return status.key === 'waterNow' || status.key === 'today';
 }
+
+/**
+ * Zone-adjusted watering interval in days — the same formula the API applies on
+ * markWatered: round(waterEveryDays × zone multiplier), never below 1 day.
+ * @param {{ care?: { waterEveryDays?: number }, zoneMultipliers?: Record<string, number> }} species
+ * @param {string|null|undefined} climateZone
+ * @returns {number}
+ */
+export function zoneAdjustedInterval(species, climateZone) {
+  const base = species?.care?.waterEveryDays ?? 7;
+  const multiplier = (climateZone && species?.zoneMultipliers?.[climateZone]) ?? 1;
+  return Math.max(1, Math.round(base * multiplier));
+}

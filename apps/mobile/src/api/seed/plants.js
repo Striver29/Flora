@@ -62,6 +62,31 @@ export const seedPlants = [
   },
 ];
 
+/** Growth-log entries so the timeline has content out of the box. */
+export const seedGrowthLogs = [
+  {
+    id: 'gl1',
+    plantId: 'p1',
+    photoKey: 'assets/demo/plant-1.jpg',
+    note: 'أول ورقة جديدة!',
+    createdAt: '2026-07-25T09:00:00.000Z',
+  },
+  {
+    id: 'gl2',
+    plantId: 'p1',
+    photoKey: null,
+    note: 'Moved to a sunnier corner of the balcony.',
+    createdAt: '2026-08-01T10:00:00.000Z',
+  },
+  {
+    id: 'gl3',
+    plantId: 'p2',
+    photoKey: 'assets/demo/plant-2.jpg',
+    note: 'Flowers forming on the second truss.',
+    createdAt: '2026-07-30T08:00:00.000Z',
+  },
+];
+
 /** A few pre-configured care schedules. */
 export const seedSchedules = [
   {

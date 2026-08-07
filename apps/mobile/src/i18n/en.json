@@ -64,6 +64,28 @@
   "plant": {
     "title": "Plant details"
   },
+  "plantDetail": {
+    "water": "Water",
+    "sun": "Sun",
+    "temp": "Temp",
+    "everyNDays_one": "Every day",
+    "everyNDays_other": "Every {{count}} days",
+    "wateredToday": "Watered today ✓",
+    "timeline": "Timeline",
+    "addLog": "+ Log",
+    "addPhoto": "Add a photo",
+    "photoAdded": "Photo added ✓",
+    "note": "Note",
+    "saveLog": "Save log",
+    "loadMore": "Load more",
+    "healthy": "Looking healthy",
+    "issueFound": "Issue detected",
+    "confidence": "{{percent}}% confidence",
+    "empty": "No entries yet — log your plant's first moment."
+  },
+  "diagnosis": {
+    "title": "Diagnosis"
+  },
   "profile": {
     "title": "Profile",
     "language": "Language",

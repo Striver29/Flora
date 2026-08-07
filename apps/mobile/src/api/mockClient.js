@@ -13,9 +13,9 @@ import {
 import { getPersistentStorage } from './storage.js';
 import { seedSession, seedUsers } from './seed/users.js';
 import { seedSpecies } from './seed/species.js';
-import { seedPlants, seedSchedules } from './seed/plants.js';
+import { seedGrowthLogs, seedPlants, seedSchedules } from './seed/plants.js';
 import { seedComments, seedFollows, seedLikes, seedPosts } from './seed/posts.js';
-import { diagnosisFixtures, fixtureNames } from './seed/diagnoses.js';
+import { diagnosisFixtures, fixtureNames, seedDiagnoses } from './seed/diagnoses.js';
 
 const STORAGE_KEY = 'flora-mock-v1';
 const PERSIST_DEBOUNCE_MS = 500;
@@ -32,6 +32,10 @@ const CreateDiagnosisSchema = z.object({
   mode: z.enum(['identify', 'health']).optional(),
 });
 const SpeciesQuerySchema = z.string().trim().min(1);
+const TimelineOptionsSchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
 const CommentBodySchema = z.string().trim().min(1);
 const GrowthLogSchema = z
   .object({ photoKey: z.string().optional(), note: z.string().optional() })
@@ -69,8 +73,8 @@ export function createMockClient({ storage } = {}) {
       species: seedSpecies,
       plants: seedPlants,
       schedules: seedSchedules,
-      growthLogs: [],
-      diagnoses: [],
+      growthLogs: seedGrowthLogs,
+      diagnoses: seedDiagnoses,
       posts: seedPosts,
       comments: seedComments,
       likes: seedLikes,
@@ -326,29 +330,80 @@ export function createMockClient({ storage } = {}) {
           });
         });
       },
-      /** Append a growth log entry (photo and/or note). */
-      addGrowthLog(plantId, input) {
+      logs: {
+        /** Append a growth log entry (photo and/or note). */
+        create(plantId, input) {
+          return call(() => {
+            const user = currentUser();
+            if (!user) return notLoggedIn();
+            const idCheck = parseWith(IdSchema, plantId);
+            if (idCheck.error) return idCheck.error;
+            const { data, error } = parseWith(GrowthLogSchema, input);
+            if (error) return error;
+            const plant = store.plants.find(
+              (entry) => entry.id === plantId && entry.ownerId === user.id,
+            );
+            if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${plantId} not found`);
+            const log = {
+              id: makeId('gl'),
+              plantId: plant.id,
+              photoKey: data.photoKey ?? null,
+              note: data.note ?? null,
+              createdAt: new Date().toISOString(),
+            };
+            store.growthLogs.push(log);
+            schedulePersist();
+            return ok(clone(log));
+          });
+        },
+      },
+      /**
+       * Cursor-paginated timeline mixing 'log' and completed 'diagnosis' items,
+       * newest first. Returns { items, nextCursor }.
+       */
+      timeline(plantId, options = {}) {
         return call(() => {
           const user = currentUser();
           if (!user) return notLoggedIn();
           const idCheck = parseWith(IdSchema, plantId);
           if (idCheck.error) return idCheck.error;
-          const { data, error } = parseWith(GrowthLogSchema, input);
+          const { data, error } = parseWith(TimelineOptionsSchema, options ?? {});
           if (error) return error;
           const plant = store.plants.find(
             (entry) => entry.id === plantId && entry.ownerId === user.id,
           );
           if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${plantId} not found`);
-          const log = {
-            id: makeId('gl'),
-            plantId: plant.id,
-            photoKey: data.photoKey ?? null,
-            note: data.note ?? null,
-            createdAt: new Date().toISOString(),
-          };
-          store.growthLogs.push(log);
-          schedulePersist();
-          return ok(clone(log));
+          const logItems = store.growthLogs
+            .filter((log) => log.plantId === plantId)
+            .map((log) => ({
+              type: 'log',
+              id: log.id,
+              createdAt: log.createdAt,
+              photoKey: log.photoKey,
+              note: log.note,
+            }));
+          const diagnosisItems = store.diagnoses
+            .filter((entry) => entry.plantId === plantId && entry.status === 'COMPLETE')
+            .map((entry) => ({
+              type: 'diagnosis',
+              id: entry.id,
+              createdAt: new Date(entry.createdAt).toISOString(),
+              isHealthy: entry.result.health.isHealthy,
+              topIssue: entry.result.health.issues[0]?.name ?? null,
+              confidence: entry.result.health.confidence,
+              lowConfidence: entry.lowConfidence,
+            }));
+          const items = [...logItems, ...diagnosisItems].sort((a, b) =>
+            a.createdAt < b.createdAt ? 1 : -1,
+          );
+          const start = data.cursor ? Number(data.cursor) : 0;
+          const limit = data.limit ?? 10;
+          const page = items.slice(start, start + limit);
+          const nextIndex = start + limit;
+          return ok({
+            items: clone(page),
+            nextCursor: nextIndex < items.length ? String(nextIndex) : null,
+          });
         });
       },
     },
@@ -368,7 +423,11 @@ export function createMockClient({ storage } = {}) {
           return ok(clone(store.schedules.filter((schedule) => schedule.plantId === plantId)));
         });
       },
-      /** Add a care schedule. Validates CreateScheduleSchema. */
+      /**
+       * Add or update a care schedule — upserts per (plant, type) so setting a
+       * new interval replaces the old schedule instead of stacking duplicates.
+       * Validates CreateScheduleSchema.
+       */
       create(plantId, input) {
         return call(() => {
           const user = currentUser();
@@ -381,6 +440,14 @@ export function createMockClient({ storage } = {}) {
             (entry) => entry.id === plantId && entry.ownerId === user.id,
           );
           if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${plantId} not found`);
+          const existing = store.schedules.find(
+            (schedule) => schedule.plantId === plant.id && schedule.type === data.type,
+          );
+          if (existing) {
+            if (data.intervalDays !== undefined) existing.intervalDays = data.intervalDays;
+            schedulePersist();
+            return ok(clone(existing));
+          }
           const schedule = {
             id: makeId('sch'),
             plantId: plant.id,

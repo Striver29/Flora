@@ -72,6 +72,32 @@
   "plant": {
     "title": "تفاصيل النبتة"
   },
+  "plantDetail": {
+    "water": "سقاية",
+    "sun": "شمس",
+    "temp": "حرارة",
+    "everyNDays_zero": "كل {{count}} يوم",
+    "everyNDays_one": "كل يوم",
+    "everyNDays_two": "كل يومين",
+    "everyNDays_few": "كل {{count}} أيام",
+    "everyNDays_many": "كل {{count}} يوم",
+    "everyNDays_other": "كل {{count}} يوم",
+    "wateredToday": "سقيتها اليوم ✓",
+    "timeline": "اليوميات",
+    "addLog": "+ سجّل",
+    "addPhoto": "ضيف صورة",
+    "photoAdded": "انضافت الصورة ✓",
+    "note": "ملاحظة",
+    "saveLog": "احفظ",
+    "loadMore": "حمّل أكتر",
+    "healthy": "شكلها بخير",
+    "issueFound": "في مشكلة",
+    "confidence": "ثقة {{percent}}%",
+    "empty": "ما في مدخلات بعد — سجّل أول لحظة لنبتتك."
+  },
+  "diagnosis": {
+    "title": "التشخيص"
+  },
   "profile": {
     "title": "حسابي",
     "language": "اللغة",

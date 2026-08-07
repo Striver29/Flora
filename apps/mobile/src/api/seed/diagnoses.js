@@ -53,3 +53,19 @@ export const diagnosisFixtures = {
 };
 
 export const fixtureNames = Object.keys(diagnosisFixtures);
+
+/** One completed diagnosis so plant p2's timeline mixes logs and diagnoses. */
+export const seedDiagnoses = [
+  {
+    id: 'dg_seed1',
+    userId: 'u1',
+    plantId: 'p2',
+    imageUri: 'assets/demo/plant-2.jpg',
+    mode: 'health',
+    status: 'COMPLETE',
+    fixtureName: 'diseased-tomato',
+    createdAt: 1754326800000, // 2026-08-04T17:00:00.000Z
+    result: diagnosisFixtures['diseased-tomato'],
+    lowConfidence: false,
+  },
+];

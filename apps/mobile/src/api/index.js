@@ -29,7 +29,9 @@ import { mockClient } from './mockClient.js';
  *   plants.markWatered(id)                         → { plantId, wateredAt, nextDueAt }
  *                                                     nextDueAt = now + max(1, round(
  *                                                     species.waterEveryDays × zoneMultiplier(user.climateZone))) days
- *   plants.addGrowthLog(plantId, { photoKey?, note? }) → GrowthLog
+ *   plants.logs.create(plantId, { photoKey?, note? }) → GrowthLog
+ *   plants.timeline(plantId, { cursor?, limit? })  → { items, nextCursor }
+ *                                                     'log' and completed 'diagnosis' items, newest first
  *
  *   schedules.list(plantId)                        → Schedule[]
  *   schedules.create(plantId, input)               → Schedule        CreateScheduleSchema

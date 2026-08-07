@@ -76,6 +76,32 @@ export function runClientContract(
       expect(Date.parse(res.data.nextDueAt) - Date.parse(res.data.wateredAt)).toBe(17 * DAY_MS);
     });
 
+    it('returns a mixed, paginated plant timeline', async () => {
+      const client = makeClient();
+      const page1 = await settle(client.plants.timeline('p1', { limit: 1 }));
+      expect(page1.ok).toBe(true);
+      expect(page1.data.items).toHaveLength(1);
+      expect(page1.data.nextCursor).toBeTruthy();
+      const page2 = await settle(
+        client.plants.timeline('p1', { cursor: page1.data.nextCursor, limit: 5 }),
+      );
+      expect(page2.data.items.length).toBeGreaterThan(0);
+      expect(page2.data.nextCursor).toBeNull();
+      const mixed = await settle(client.plants.timeline('p2'));
+      expect(mixed.data.items.some((item) => item.type === 'log')).toBe(true);
+      expect(mixed.data.items.some((item) => item.type === 'diagnosis')).toBe(true);
+    });
+
+    it('appends growth logs via plants.logs.create', async () => {
+      const client = makeClient();
+      const created = await settle(client.plants.logs.create('p1', { note: 'New leaf' }));
+      expect(created.ok).toBe(true);
+      const timeline = await settle(client.plants.timeline('p1', { limit: 1 }));
+      expect(timeline.data.items[0].id).toBe(created.data.id);
+      const invalid = await settle(client.plants.logs.create('p1', {}));
+      expect(invalid.error.code).toBe('VALIDATION');
+    });
+
     it('validates schedule input', async () => {
       const client = makeClient();
       const valid = await settle(

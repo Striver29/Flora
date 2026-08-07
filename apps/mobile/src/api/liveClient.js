@@ -29,7 +29,10 @@ export const liveClient = {
     get: notImplemented('plants.get'),
     create: notImplemented('plants.create'),
     markWatered: notImplemented('plants.markWatered'),
-    addGrowthLog: notImplemented('plants.addGrowthLog'),
+    timeline: notImplemented('plants.timeline'),
+    logs: {
+      create: notImplemented('plants.logs.create'),
+    },
   },
   schedules: {
     list: notImplemented('schedules.list'),
