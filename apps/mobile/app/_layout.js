@@ -12,6 +12,7 @@ import {
 } from '@expo-google-fonts/baloo-bhaijaan-2';
 import { setPersistentStorage } from '../src/api/storage.js';
 import { initLocale } from '../src/i18n/index.js';
+import { addWateringResponseListener, configureNotifications } from '../src/notifications/local.js';
 import { useAuthStore } from '../src/store/authStore.js';
 import { colors } from '../src/theme.js';
 
@@ -44,6 +45,13 @@ export default function RootLayout() {
     initLocale();
     useAuthStore.getState().hydrate();
   }, []);
+
+  // Notification taps deep-link into the plant that needs water.
+  useEffect(() => {
+    configureNotifications();
+    const subscription = addWateringResponseListener((plantId) => router.push(`/plant/${plantId}`));
+    return () => subscription.remove();
+  }, [router]);
 
   // Auth guard: once the session state is known, anonymous users only see /auth/*.
   useEffect(() => {

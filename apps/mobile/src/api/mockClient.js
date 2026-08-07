@@ -11,6 +11,7 @@ import {
   ok,
 } from '@flora/shared';
 import { getPersistentStorage } from './storage.js';
+import { cancelForPlant, scheduleWatering } from '../notifications/local.js';
 import { seedSession, seedUsers } from './seed/users.js';
 import { seedSpecies } from './seed/species.js';
 import { seedGrowthLogs, seedPlants, seedSchedules } from './seed/plants.js';
@@ -46,6 +47,37 @@ const GrowthLogSchema = z
 
 /** Deep-clone plain JSON data so callers can never mutate the store. */
 const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
+
+/**
+ * Keep exactly one pending local notification per plant, anchored at nextDueAt.
+ * Fire-and-forget: notification failures must never break the data flow.
+ */
+async function syncWateringReminder(plant) {
+  try {
+    if (plant.nextDueAt && new Date(plant.nextDueAt).getTime() > Date.now()) {
+      await scheduleWatering({
+        plantId: plant.id,
+        nickname: plant.nickname,
+        at: new Date(plant.nextDueAt),
+      });
+    } else {
+      await cancelForPlant(plant.id);
+    }
+  } catch {
+    // notifications unavailable (permissions, platform, tests) — ignore
+  }
+}
+
+/** Re-anchor nextDueAt after a WATER schedule change, then sync the reminder. */
+function refreshWateringAnchor(plant, scheduleData) {
+  if (scheduleData.type !== 'WATER') return;
+  if (scheduleData.intervalDays && plant.lastWateredAt) {
+    plant.nextDueAt = new Date(
+      new Date(plant.lastWateredAt).getTime() + scheduleData.intervalDays * DAY_MS,
+    ).toISOString();
+  }
+  void syncWateringReminder(plant);
+}
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -323,6 +355,7 @@ export function createMockClient({ storage } = {}) {
           plant.lastWateredAt = new Date(wateredAt).toISOString();
           plant.nextDueAt = new Date(wateredAt + intervalDays * DAY_MS).toISOString();
           schedulePersist();
+          void syncWateringReminder(plant);
           return ok({
             plantId: plant.id,
             wateredAt: plant.lastWateredAt,
@@ -445,6 +478,7 @@ export function createMockClient({ storage } = {}) {
           );
           if (existing) {
             if (data.intervalDays !== undefined) existing.intervalDays = data.intervalDays;
+            refreshWateringAnchor(plant, data);
             schedulePersist();
             return ok(clone(existing));
           }
@@ -456,6 +490,7 @@ export function createMockClient({ storage } = {}) {
             createdAt: new Date().toISOString(),
           };
           store.schedules.push(schedule);
+          refreshWateringAnchor(plant, data);
           schedulePersist();
           return ok(clone(schedule));
         });

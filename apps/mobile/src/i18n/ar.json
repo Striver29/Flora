@@ -135,7 +135,13 @@
     "title": "حسابي",
     "language": "اللغة",
     "english": "English",
-    "arabic": "العربية"
+    "arabic": "العربية",
+    "reminders": "تذكيرات السقاية"
+  },
+  "reminders": {
+    "title": "تذكيرات السقاية",
+    "empty": "ما في تذكيرات بعد — اسقي نبتة أو فعّل جدول.",
+    "devRemind": "DEV · ذكرني بعد دقيقتين"
   },
   "auth": {
     "signInTitle": "أهلاً من جديد",

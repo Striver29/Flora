@@ -119,7 +119,13 @@
     "title": "Profile",
     "language": "Language",
     "english": "English",
-    "arabic": "العربية"
+    "arabic": "العربية",
+    "reminders": "Watering reminders"
+  },
+  "reminders": {
+    "title": "Watering reminders",
+    "empty": "No reminders yet — water a plant or set a schedule.",
+    "devRemind": "DEV · Remind me in 2 minutes"
   },
   "auth": {
     "signInTitle": "Welcome back",

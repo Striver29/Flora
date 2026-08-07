@@ -1,13 +1,16 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Screen } from '../../src/components/Screen.js';
 import { Card } from '../../src/components/Card.js';
 import { Chip } from '../../src/components/Chip.js';
+import { Button } from '../../src/components/Button.js';
 import { setLocale } from '../../src/i18n/index.js';
 import { colors, fonts, spacing, typeScale } from '../../src/theme.js';
 
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const active = i18n.language;
   return (
     <Screen>
@@ -36,6 +39,13 @@ export default function ProfileScreen() {
           />
         </View>
       </Card>
+      <Button
+        testID="profile-reminders"
+        variant="ghost"
+        label={t('profile.reminders')}
+        onPress={() => router.push('/reminders')}
+        style={styles.remindersButton}
+      />
     </Screen>
   );
 }
@@ -55,5 +65,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  remindersButton: {
+    marginTop: spacing.lg,
   },
 });
