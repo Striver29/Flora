@@ -21,6 +21,7 @@ export const liveClient = {
   },
   species: {
     list: notImplemented('species.list'),
+    search: notImplemented('species.search'),
     get: notImplemented('species.get'),
   },
   plants: {

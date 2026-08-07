@@ -6,7 +6,12 @@
 export const diagnosisFixtures = {
   'healthy-basil': {
     species: [
-      { scientificName: 'Ocimum basilicum', commonNames: ['Basil', 'حبق'], probability: 0.93 },
+      {
+        speciesId: 'sp1',
+        scientificName: 'Ocimum basilicum',
+        commonNames: ['Basil', 'حبق'],
+        probability: 0.93,
+      },
       { scientificName: 'Ocimum tenuiflorum', commonNames: ['Holy basil'], probability: 0.05 },
     ],
     health: { isHealthy: true, issues: [], confidence: 0.91 },
@@ -14,6 +19,7 @@ export const diagnosisFixtures = {
   'diseased-tomato': {
     species: [
       {
+        speciesId: 'sp2',
         scientificName: 'Solanum lycopersicum',
         commonNames: ['Tomato', 'بندورة'],
         probability: 0.88,

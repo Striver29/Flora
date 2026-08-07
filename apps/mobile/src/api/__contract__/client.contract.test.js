@@ -34,6 +34,17 @@ export function runClientContract(
       expect(posts.data.filter((post) => post.type === 'HELP')).toHaveLength(1);
     });
 
+    it('searches species by common or scientific name', async () => {
+      const client = makeClient();
+      const byCommon = await settle(client.species.search('basil'));
+      expect(byCommon.ok).toBe(true);
+      expect(byCommon.data.some((species) => species.id === 'sp1')).toBe(true);
+      const byArabic = await settle(client.species.search('زيتون'));
+      expect(byArabic.data.some((species) => species.id === 'sp4')).toBe(true);
+      const blank = await settle(client.species.search('   '));
+      expect(blank.error.code).toBe('VALIDATION');
+    });
+
     it('creates a plant and rejects an invalid one with VALIDATION', async () => {
       const client = makeClient();
       const created = await settle(client.plants.create({ nickname: 'Testy', speciesId: 'sp1' }));

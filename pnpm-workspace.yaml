@@ -6,3 +6,4 @@ packages:
 minimumReleaseAgeExclude:
   - expo-router@57.0.11
   - expo-symbols@57.0.2
+  - expo-image-picker@57.0.8

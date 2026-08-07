@@ -38,7 +38,28 @@
   },
   "addPlant": {
     "title": "Add a plant",
-    "hint": "Photo identification lands in the diagnosis phase — hang tight."
+    "tabSearch": "Search",
+    "tabPhoto": "By photo",
+    "searchPlaceholder": "Try basil, mint, زيتون…",
+    "noResults": "No species match \"{{query}}\"",
+    "takePhoto": "Take a photo",
+    "chooseFromLibrary": "Choose from library",
+    "analyzing": "Flora is taking a close look at your plant…",
+    "analyzingHint": "This usually takes a few seconds",
+    "timeoutTitle": "That took too long",
+    "timeoutBody": "The identification service didn't answer in time. Give it another try.",
+    "retry": "Try again",
+    "suggestionsTitle": "Is it one of these?",
+    "match": "{{percent}}% match",
+    "confirmTitle": "Add to your garden",
+    "nickname": "Nickname",
+    "carePreview": "Care preview",
+    "waterEvery_one": "Water every day",
+    "waterEvery_other": "Water every {{count}} days",
+    "tempRange": "Comfortable between {{min}}–{{max}}°C",
+    "autoSchedule": "Set watering schedule automatically",
+    "save": "Add plant",
+    "back": "Back"
   },
   "plant": {
     "title": "Plant details"

@@ -22,3 +22,11 @@ jest.mock('expo-image', () => {
   const React = jest.requireActual('react');
   return { Image: (props) => React.createElement('ExpoImage', props) };
 });
+
+// expo-image-picker is native; tests override the launch mocks per scenario.
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: null })),
+  launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
+}));

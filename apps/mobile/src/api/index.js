@@ -20,6 +20,7 @@ import { mockClient } from './mockClient.js';
  *   me.update({ climateZone })                     → { user }        UpdateMeSchema
  *
  *   species.list()                                 → SpeciesDto[]
+ *   species.search(query)                          → SpeciesDto[]    common/scientific substring match
  *   species.get(id)                                → SpeciesDto
  *
  *   plants.list()                                  → Plant[]         session user's plants
@@ -33,7 +34,7 @@ import { mockClient } from './mockClient.js';
  *   schedules.list(plantId)                        → Schedule[]
  *   schedules.create(plantId, input)               → Schedule        CreateScheduleSchema
  *
- *   diagnoses.create({ plantId?, imageUri })       → { id, status: 'PENDING' }
+ *   diagnoses.create({ plantId?, imageUri, mode? }) → { id, status: 'PENDING' }  mode: 'identify' | 'health'
  *   diagnoses.get(id)                              → Diagnosis       flips to COMPLETE after ~3s;
  *                                                     lowConfidence: true when confidence < 0.55
  *   diagnoses.escalate(id)                         → Post            HELP post embedding

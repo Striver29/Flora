@@ -42,7 +42,32 @@
   },
   "addPlant": {
     "title": "ضيف نبتة",
-    "hint": "التعرف بالصورة جاي بمرحلة التشخيص — لحظة صبر."
+    "tabSearch": "بحث",
+    "tabPhoto": "بالصورة",
+    "searchPlaceholder": "جرب: حبق، نعنع، olive…",
+    "noResults": "ما في نوع بيطابق \"{{query}}\"",
+    "takePhoto": "صوّر النبتة",
+    "chooseFromLibrary": "اختار من الصور",
+    "analyzing": "فلورا عم تدقق بنبتتك…",
+    "analyzingHint": "عادة بتاخد كم ثانية",
+    "timeoutTitle": "طوّلت شوي",
+    "timeoutBody": "خدمة التعرف ما جاوبت بالوقت. جرب مرة تانية.",
+    "retry": "جرب مرة تانية",
+    "suggestionsTitle": "هل هي وحدة من هدول؟",
+    "match": "تطابق {{percent}}%",
+    "confirmTitle": "ضيفها على جنينتك",
+    "nickname": "الاسم الدلع",
+    "carePreview": "لمحة عن العناية",
+    "waterEvery_zero": "اسقيها كل {{count}} يوم",
+    "waterEvery_one": "اسقيها كل يوم",
+    "waterEvery_two": "اسقيها كل يومين",
+    "waterEvery_few": "اسقيها كل {{count}} أيام",
+    "waterEvery_many": "اسقيها كل {{count}} يوم",
+    "waterEvery_other": "اسقيها كل {{count}} يوم",
+    "tempRange": "مرتاحة بين {{min}}–{{max}} درجة",
+    "autoSchedule": "فعّل جدول السقاية تلقائياً",
+    "save": "ضيف النبتة",
+    "back": "رجوع"
   },
   "plant": {
     "title": "تفاصيل النبتة"

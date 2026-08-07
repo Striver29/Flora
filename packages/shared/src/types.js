@@ -28,6 +28,7 @@
  * @property {string} scientificName
  * @property {string[]} commonNames
  * @property {number} probability 0..1
+ * @property {string} [speciesId] catalog id when the candidate maps to a known species
  */
 
 /**

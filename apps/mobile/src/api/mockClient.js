@@ -29,7 +29,9 @@ const LoginSchema = SignupSchema;
 const CreateDiagnosisSchema = z.object({
   plantId: z.string().optional(),
   imageUri: z.string().min(1),
+  mode: z.enum(['identify', 'health']).optional(),
 });
+const SpeciesQuerySchema = z.string().trim().min(1);
 const CommentBodySchema = z.string().trim().min(1);
 const GrowthLogSchema = z
   .object({ photoKey: z.string().optional(), note: z.string().optional() })
@@ -220,6 +222,23 @@ export function createMockClient({ storage } = {}) {
       list() {
         return call(() => ok(clone(store.species)));
       },
+      /** Case-insensitive substring search across common and scientific names. */
+      search(query) {
+        return call(() => {
+          const { data, error } = parseWith(SpeciesQuerySchema, query);
+          if (error) return error;
+          const q = data.toLowerCase();
+          return ok(
+            clone(
+              store.species.filter(
+                (species) =>
+                  species.scientificName.toLowerCase().includes(q) ||
+                  species.commonNames.some((name) => name.toLowerCase().includes(q)),
+              ),
+            ),
+          );
+        });
+      },
       /** One species by id. */
       get(id) {
         return call(() => {
@@ -392,6 +411,7 @@ export function createMockClient({ storage } = {}) {
             userId: user.id,
             plantId: data.plantId ?? null,
             imageUri: data.imageUri,
+            mode: data.mode ?? null,
             status: 'PENDING',
             fixtureName,
             createdAt: Date.now(),
