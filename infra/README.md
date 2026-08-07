@@ -4,10 +4,23 @@ AWS CDK app (JavaScript). Stacks are added in later phases.
 
 ## Environment variables
 
+Two `.env` files, split by who reads them — this is not a style choice:
+
+| File | Read by | Template |
+| --- | --- | --- |
+| `.env` (repo root) | `apps/api` (via `--env-file-if-exists`) | `.env.example` |
+| `apps/mobile/.env` | Expo, which loads `.env` from its **own** project root | `apps/mobile/.env.example` |
+
+An `EXPO_PUBLIC_*` var placed in the repo-root `.env` is **silently ignored** by
+the app. Secrets go in the root file only: every `EXPO_PUBLIC_*` value is inlined
+into the app bundle at build time and is readable by anyone with the app.
+
 | Variable       | Where                                  | Description                 |
 | -------------- | -------------------------------------- | --------------------------- |
 | `DATABASE_URL` | apps/api (local: `docker compose up -d db`) | Postgres connection string. |
-| `EXPO_PUBLIC_API_MODE` | apps/mobile | Selects the mobile data client: `mock` (default) or `live`. |
+| `EXPO_PUBLIC_API_MODE` | apps/mobile | Selects the mobile data client: `mock` (default) or `live`. Only diagnoses exist on the API today, so `live` breaks the rest of the app. |
+| `EXPO_PUBLIC_LIVE_SCAN` | apps/mobile | `1` routes only the Plant.id scan to the API, leaving the rest on the offline mock. `0` (default) is fully offline — the mode the mentor demo runs in. |
+| `EXPO_PUBLIC_API_URL` | apps/mobile | API base URL **as seen from the phone**. Blank auto-derives the LAN address from the Metro host. Never `localhost` on a physical device. |
 | `PORT` | apps/api | Port the API listens on. Default `4000`. |
 | `PLANT_ID_API_KEY` | apps/api | Plant.id recognition key. **Secret.** Blank = fixture-backed stub recognizer (no key, no network), which is the default for everyone not working on recognition. |
 | `PLANT_ID_BASE_URL` | apps/api | Plant.id API root. Default `https://plant.id/api/v3`. |

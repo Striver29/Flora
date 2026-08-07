@@ -10,6 +10,10 @@ export function createDiagnosisStore() {
   /** @type {Map<string, object>} */
   const rows = new Map();
   let counter = 0;
+  // Per-process suffix so a server id can never collide with an id minted by
+  // the mobile mock store, which uses the same `dg_<n>` shape. The two coexist
+  // while only scanning runs live.
+  const runId = Math.random().toString(36).slice(2, 7);
 
   
   return {
@@ -18,7 +22,7 @@ export function createDiagnosisStore() {
      * @returns {object} the stored row
      */
     insert(row) {
-      const id = `dg_${++counter}`;
+      const id = `dg_${runId}${++counter}`;
       const stored = { ...row, id };
       rows.set(id, stored);
       return stored;

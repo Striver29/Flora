@@ -42,7 +42,7 @@ describe('createPlantIdProvider', () => {
     );
   });
 
-  it('sends the key, the image and a health request', async () => {
+  it('sends the key, the image, and health as a query modifier', async () => {
     const fetchImpl = fakeFetch();
     await provider(fetchImpl)({ imageBase64: 'aGVsbG8=', mode: 'identify' });
 
@@ -50,11 +50,24 @@ describe('createPlantIdProvider', () => {
     expect(url).toContain('/identification');
     // Treatment details are opt-in; without them the result screen has no steps.
     expect(url).toContain('treatment');
+    // Modifiers belong in the query string. Sending them in the body makes
+    // Plant.id reject the entire request with a 400.
+    expect(url).toContain('health=all');
     expect(init.headers['Api-Key']).toBe('test-key');
 
-    const body = JSON.parse(init.body);
-    expect(body.images).toEqual(['aGVsbG8=']);
-    expect(body.health).toBe('all');
+    expect(JSON.parse(init.body)).toEqual({ images: ['aGVsbG8='] });
+  });
+
+  it('never puts modifiers in the body', async () => {
+    const fetchImpl = fakeFetch();
+    await provider(fetchImpl)({ imageBase64: 'aGVsbG8=', mode: 'health' });
+
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(body).not.toHaveProperty('health');
+    // There is no `similar_images=false` — you opt in by adding the modifier,
+    // and sending it as `false` is a 400.
+    expect(body).not.toHaveProperty('similar_images');
+    expect(fetchImpl.mock.calls[0][0]).not.toContain('similar_images');
   });
 
   it('returns a normalized result, not the raw payload', async () => {

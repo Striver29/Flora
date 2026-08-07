@@ -1,7 +1,13 @@
+import { apiFetch } from './http.js';
+
 /**
  * Live HTTP client — same interface as mockClient, backed by the Express API.
- * Not implemented until the API phase; every method throws so accidental use
- * with EXPO_PUBLIC_API_MODE=live fails loudly instead of silently.
+ *
+ * Only `diagnoses.create` / `diagnoses.get` are implemented: those are the two
+ * the Plant.id scan needs. Everything else still throws so that flipping
+ * EXPO_PUBLIC_API_MODE=live fails loudly rather than half-working. To run the
+ * real scanner against the rest of the mock app, use EXPO_PUBLIC_LIVE_SCAN=1
+ * instead (see src/api/index.js).
  */
 const notImplemented = (method) => async () => {
   throw new Error(
@@ -39,8 +45,34 @@ export const liveClient = {
     create: notImplemented('schedules.create'),
   },
   diagnoses: {
-    create: notImplemented('diagnoses.create'),
-    get: notImplemented('diagnoses.get'),
+    /**
+     * Start a diagnosis. The image travels as base64 in the body — temporary,
+     * until the presigned-S3 upload path lands and this becomes a key.
+     * `imageUri` is accepted for interface parity with the mock and ignored.
+     * @param {{imageBase64?: string, imageUri?: string, mode?: string, plantId?: string}} input
+     */
+    async create({ imageBase64, mode, plantId } = {}) {
+      if (!imageBase64) {
+        return {
+          ok: false,
+          error: {
+            code: 'VALIDATION',
+            message: 'No image data — the photo was captured without base64.',
+          },
+        };
+      }
+      return apiFetch('/diagnoses', {
+        method: 'POST',
+        body: { imageBase64, ...(mode && { mode }), ...(plantId && { plantId }) },
+      });
+    },
+
+    /** @param {string} id */
+    async get(id) {
+      return apiFetch(`/diagnoses/${encodeURIComponent(id)}`);
+    },
+
+    // Both need plants/posts, which have no API yet.
     attach: notImplemented('diagnoses.attach'),
     escalate: notImplemented('diagnoses.escalate'),
   },

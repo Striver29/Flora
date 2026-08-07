@@ -39,12 +39,19 @@ export function createPlantIdProvider({ apiKey, baseUrl, timeoutMs, fetchImpl = 
     throw new Error('createPlantIdProvider requires an API key');
   }
 
+  // `health` is a query MODIFIER, not a body field — Plant.id rejects the whole
+  // request with a 400 if you put modifiers in the JSON body. Related: there is
+  // no `similar_images=false`; you opt in by adding the modifier, so to skip
+  // similar images you simply omit it.
   const url =
     `${baseUrl}/identification` +
     `?details=${DETAIL_FIELDS.join(',')}` +
     // English only for now; the translation layer will localize from issue codes
     // rather than asking the provider for another language.
-    `&language=en`;
+    `&language=en` +
+    // Always ask for health: the result screen shows a verdict banner in both
+    // modes. `mode` only decides which signal drives confidence.
+    `&health=all`;
 
   /**
    * @param {{imageBase64: string, mode?: string, resolveSpeciesId?: (name: string) => (string|null)}} input
@@ -59,13 +66,8 @@ export function createPlantIdProvider({ apiKey, baseUrl, timeoutMs, fetchImpl = 
           'Api-Key': apiKey,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          images: [imageBase64],
-          // Always ask for health: the result screen shows a verdict banner in
-          // both modes. `mode` only decides which signal drives confidence.
-          health: 'all',
-          similar_images: false,
-        }),
+        // Body carries the payload only; everything else rides the query string.
+        body: JSON.stringify({ images: [imageBase64] }),
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
