@@ -44,10 +44,18 @@ export const liveClient = {
     attach: notImplemented('diagnoses.attach'),
     escalate: notImplemented('diagnoses.escalate'),
   },
+  feed: {
+    list: notImplemented('feed.list'),
+  },
+  users: {
+    get: notImplemented('users.get'),
+    posts: notImplemented('users.posts'),
+  },
   posts: {
     list: notImplemented('posts.list'),
     get: notImplemented('posts.get'),
     create: notImplemented('posts.create'),
+    comments: notImplemented('posts.comments'),
     like: notImplemented('posts.like'),
     unlike: notImplemented('posts.unlike'),
     comment: notImplemented('posts.comment'),

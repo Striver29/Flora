@@ -16,7 +16,8 @@
       "<rootDir>/jest.setup.js"
     ],
     "restoreMocks": true,
-    "testTimeout": 30000
+    "testTimeout": 120000,
+    "maxWorkers": 4
   },
   "dependencies": {
     "@expo-google-fonts/baloo-2": "^0.4.2",

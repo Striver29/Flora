@@ -43,10 +43,17 @@ import { mockClient } from './mockClient.js';
  *   diagnoses.escalate(id)                         → Post            HELP post embedding
  *                                                     { imageUri, topIssue, confidence }
  *
+ *   feed.list({ cursor?, limit? })                 → { items, nextCursor }  author + likedByMe enriched;
+ *                                                     others' PENDING_REVIEW posts hidden
+ *   users.get(userId)                              → { user, following }
+ *   users.posts(userId)                            → Post[]          that user's visible posts
+ *
  *   posts.list({ type? })                          → Post[]
  *   posts.get(id)                                  → Post + { comments }
- *   posts.create(input)                            → Post            CreatePostSchema
- *   posts.like(id) / posts.unlike(id)              → { likeCount }
+ *   posts.create(input)                            → Post            CreatePostSchema; status
+ *                                                     PENDING_REVIEW when moderation flags an image
+ *   posts.comments(postId, { cursor?, limit? })    → { items, nextCursor }
+ *   posts.like(id) / posts.unlike(id)              → { likeCount, likedByMe }
  *   posts.comment(postId, body)                    → Comment
  *
  *   social.follow(userId) / social.unfollow(userId) → { following }

@@ -178,11 +178,37 @@ export function createMockClient({ storage } = {}) {
 
   const likeCount = (postId) => store.likes.filter((like) => like.postId === postId).length;
 
-  const postView = (post) => ({
+  const authorOf = (authorId) =>
+    publicUser(
+      store.users.find((entry) => entry.id === authorId) ?? {
+        id: authorId,
+        username: 'unknown',
+        displayName: 'Unknown',
+        climateZone: null,
+      },
+    );
+
+  const postView = (post, viewer) => ({
     ...clone(post),
+    status: post.status ?? 'PUBLISHED',
+    author: authorOf(post.authorId),
     likeCount: likeCount(post.id),
+    likedByMe: viewer
+      ? store.likes.some((like) => like.postId === post.id && like.userId === viewer.id)
+      : false,
     commentCount: store.comments.filter((comment) => comment.postId === post.id).length,
   });
+
+  const commentView = (comment) => ({
+    ...clone(comment),
+    author: authorOf(comment.authorId),
+  });
+
+  /** Posts visible to a viewer: everything published, plus their own pending ones. */
+  const visiblePosts = (viewer) =>
+    store.posts.filter(
+      (post) => (post.status ?? 'PUBLISHED') !== 'PENDING_REVIEW' || post.authorId === viewer.id,
+    );
 
   return {
     auth: {
@@ -606,7 +632,67 @@ export function createMockClient({ storage } = {}) {
           };
           store.posts.unshift(post);
           schedulePersist();
-          return ok(postView(post));
+          return ok(postView(post, user));
+        });
+      },
+    },
+
+    feed: {
+      /**
+       * Cursor-paginated community feed, newest first. Other users' posts that
+       * are under review are hidden; the author sees their own with the status.
+       */
+      list(options = {}) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { data, error } = parseWith(TimelineOptionsSchema, options ?? {});
+          if (error) return error;
+          const visible = visiblePosts(user);
+          const start = data.cursor ? Number(data.cursor) : 0;
+          const limit = data.limit ?? 10;
+          const page = visible.slice(start, start + limit);
+          const nextIndex = start + limit;
+          return ok({
+            items: page.map((post) => postView(post, user)),
+            nextCursor: nextIndex < visible.length ? String(nextIndex) : null,
+          });
+        });
+      },
+    },
+
+    users: {
+      /** A user's public profile plus whether the viewer follows them. */
+      get(userId) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { error } = parseWith(IdSchema, userId);
+          if (error) return error;
+          const target = store.users.find((entry) => entry.id === userId);
+          if (!target) return fail(ErrorCode.NOT_FOUND, `user ${userId} not found`);
+          return ok({
+            user: publicUser(target),
+            following: store.follows.some(
+              (follow) => follow.followerId === user.id && follow.followeeId === target.id,
+            ),
+          });
+        });
+      },
+      /** A user's visible posts, newest first. */
+      posts(userId) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { error } = parseWith(IdSchema, userId);
+          if (error) return error;
+          const target = store.users.find((entry) => entry.id === userId);
+          if (!target) return fail(ErrorCode.NOT_FOUND, `user ${userId} not found`);
+          return ok(
+            visiblePosts(user)
+              .filter((post) => post.authorId === target.id)
+              .map((post) => postView(post, user)),
+          );
         });
       },
     },
@@ -615,9 +701,10 @@ export function createMockClient({ storage } = {}) {
       /** Community feed, optionally filtered by type ('GENERAL' | 'HELP'). */
       list(filter = {}) {
         return call(() => {
+          const viewer = currentUser();
           const type = filter?.type;
           const posts = type ? store.posts.filter((post) => post.type === type) : store.posts;
-          return ok(posts.map(postView));
+          return ok(posts.map((post) => postView(post, viewer)));
         });
       },
       /** One post with its comments. */
@@ -628,8 +715,29 @@ export function createMockClient({ storage } = {}) {
           const post = store.posts.find((entry) => entry.id === id);
           if (!post) return fail(ErrorCode.NOT_FOUND, `post ${id} not found`);
           return ok({
-            ...postView(post),
-            comments: clone(store.comments.filter((comment) => comment.postId === post.id)),
+            ...postView(post, currentUser()),
+            comments: store.comments
+              .filter((comment) => comment.postId === post.id)
+              .map(commentView),
+          });
+        });
+      },
+      /** Cursor-paginated comments for a post, oldest first. */
+      comments(postId, options = {}) {
+        return call(() => {
+          const idCheck = parseWith(IdSchema, postId);
+          if (idCheck.error) return idCheck.error;
+          const { data, error } = parseWith(TimelineOptionsSchema, options ?? {});
+          if (error) return error;
+          const post = store.posts.find((entry) => entry.id === postId);
+          if (!post) return fail(ErrorCode.NOT_FOUND, `post ${postId} not found`);
+          const all = store.comments.filter((comment) => comment.postId === postId);
+          const start = data.cursor ? Number(data.cursor) : 0;
+          const limit = data.limit ?? 10;
+          const nextIndex = start + limit;
+          return ok({
+            items: all.slice(start, start + limit).map(commentView),
+            nextCursor: nextIndex < all.length ? String(nextIndex) : null,
           });
         });
       },
@@ -647,11 +755,15 @@ export function createMockClient({ storage } = {}) {
             body: data.body ?? '',
             images: data.images ?? [],
             attachment: null,
+            // demo moderation: images named "flagged" go through review first
+            status: (data.images ?? []).some((image) => String(image).includes('flagged'))
+              ? 'PENDING_REVIEW'
+              : 'PUBLISHED',
             createdAt: new Date().toISOString(),
           };
           store.posts.unshift(post);
           schedulePersist();
-          return ok(postView(post));
+          return ok(postView(post, user));
         });
       },
       /** Like a post (idempotent per user). */
@@ -665,7 +777,7 @@ export function createMockClient({ storage } = {}) {
             store.likes.push({ postId: id, userId: user.id });
             schedulePersist();
           }
-          return ok({ likeCount: likeCount(id) });
+          return ok({ likeCount: likeCount(id), likedByMe: true });
         });
       },
       /** Remove a like. */
@@ -679,7 +791,7 @@ export function createMockClient({ storage } = {}) {
             (like) => !(like.postId === id && like.userId === user.id),
           );
           schedulePersist();
-          return ok({ likeCount: likeCount(id) });
+          return ok({ likeCount: likeCount(id), likedByMe: false });
         });
       },
       /** Comment on a post. */

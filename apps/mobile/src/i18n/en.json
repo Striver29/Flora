@@ -29,7 +29,30 @@
   },
   "community": {
     "title": "Community",
-    "hint": "Tips and help from fellow growers"
+    "hint": "Tips and help from fellow growers",
+    "compose": "Share",
+    "loadMore": "Load more",
+    "timeNow": "just now",
+    "timeM": "{{count}}m",
+    "timeH": "{{count}}h",
+    "timeD": "{{count}}d",
+    "pendingBadge": "Being reviewed — only you can see this",
+    "helpBadge": "Needs help",
+    "confidence": "{{percent}}% confidence"
+  },
+  "compose": {
+    "title": "Share with the community",
+    "placeholder": "What's growing?",
+    "addImage": "Add photo ({{count}}/{{max}})",
+    "submit": "Post",
+    "pendingBanner": "Being reviewed — only you can see this",
+    "pendingBody": "Our moderators take a quick look at flagged photos. Your post will appear once approved.",
+    "devFlagged": "DEV · Attach flagged image"
+  },
+  "userScreen": {
+    "follow": "Follow",
+    "following": "Following",
+    "posts": "Posts"
   },
   "camera": {
     "title": "Identify a plant",
@@ -113,7 +136,10 @@
     "devFixture": "DEV · {{name}}"
   },
   "post": {
-    "title": "Post"
+    "title": "Post",
+    "commentLabel": "Comment",
+    "commentPlaceholder": "Add a comment…",
+    "send": "Send"
   },
   "profile": {
     "title": "Profile",

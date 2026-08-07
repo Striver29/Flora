@@ -33,7 +33,30 @@
   },
   "community": {
     "title": "المجتمع",
-    "hint": "نصائح ومساعدة من المزارعين"
+    "hint": "نصائح ومساعدة من المزارعين",
+    "compose": "شارك",
+    "loadMore": "حمّل أكتر",
+    "timeNow": "هلق",
+    "timeM": "{{count}} د",
+    "timeH": "{{count}} س",
+    "timeD": "{{count}} ي",
+    "pendingBadge": "قيد المراجعة — أنت بس بتشوفه",
+    "helpBadge": "بحاجة لمساعدة",
+    "confidence": "ثقة {{percent}}%"
+  },
+  "compose": {
+    "title": "شارك مع المجتمع",
+    "placeholder": "شو عم يكبر عندك؟",
+    "addImage": "ضيف صورة ({{count}}/{{max}})",
+    "submit": "انشر",
+    "pendingBanner": "قيد المراجعة — أنت بس بتشوفه",
+    "pendingBody": "منلقي نظرة سريعة عالصور المعلّمة. منشورك بيظهر بعد الموافقة.",
+    "devFlagged": "DEV · ضيف صورة معلّمة"
+  },
+  "userScreen": {
+    "follow": "تابع",
+    "following": "متابَع",
+    "posts": "المنشورات"
   },
   "camera": {
     "title": "التعرف على نبتة",
@@ -129,7 +152,10 @@
     "devFixture": "DEV · {{name}}"
   },
   "post": {
-    "title": "منشور"
+    "title": "منشور",
+    "commentLabel": "تعليق",
+    "commentPlaceholder": "ضيف تعليق…",
+    "send": "أرسل"
   },
   "profile": {
     "title": "حسابي",

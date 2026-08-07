@@ -187,6 +187,52 @@ export function runClientContract(
       expect(helpFeed.data.some((entry) => entry.id === post.data.id)).toBe(true);
     });
 
+    it('serves a paginated feed that hides pending posts from other users', async () => {
+      const client = makeClient();
+      const page1 = await settle(client.feed.list({ limit: 5 }));
+      expect(page1.ok).toBe(true);
+      expect(page1.data.items).toHaveLength(5);
+      expect(page1.data.items[0].author.username).toBeTruthy();
+      const page2 = await settle(client.feed.list({ cursor: page1.data.nextCursor, limit: 50 }));
+      expect(page2.data.nextCursor).toBeNull();
+
+      const flagged = await settle(
+        client.posts.create({ body: 'demo', images: ['assets/demo/flagged.jpg'] }),
+      );
+      expect(flagged.data.status).toBe('PENDING_REVIEW');
+      const mine = await settle(client.feed.list({ limit: 1 }));
+      expect(mine.data.items[0].id).toBe(flagged.data.id);
+
+      await settle(client.auth.login({ username: 'rana_gardens', password: 'password123' }));
+      const theirs = await settle(client.feed.list({ limit: 50 }));
+      expect(theirs.data.items.some((post) => post.id === flagged.data.id)).toBe(false);
+    });
+
+    it('paginates post comments', async () => {
+      const client = makeClient();
+      const page = await settle(client.posts.comments('post2', { limit: 1 }));
+      expect(page.data.items).toHaveLength(1);
+      expect(page.data.items[0].author.username).toBeTruthy();
+      expect(page.data.nextCursor).toBeTruthy();
+      const rest = await settle(
+        client.posts.comments('post2', { cursor: page.data.nextCursor, limit: 10 }),
+      );
+      expect(rest.data.nextCursor).toBeNull();
+    });
+
+    it('exposes user profiles with follow state and their posts', async () => {
+      const client = makeClient();
+      const before = await settle(client.users.get('u2'));
+      expect(before.data.user.username).toBe('rana_gardens');
+      expect(before.data.following).toBe(true);
+      await settle(client.social.unfollow('u2'));
+      const after = await settle(client.users.get('u2'));
+      expect(after.data.following).toBe(false);
+      const posts = await settle(client.users.posts('u2'));
+      expect(posts.data.length).toBeGreaterThan(0);
+      expect(posts.data.every((post) => post.author.id === 'u2')).toBe(true);
+    });
+
     it('creates posts and enforces body-or-images', async () => {
       const client = makeClient();
       const bodyOnly = await settle(client.posts.create({ body: 'Hello from the contract suite' }));
