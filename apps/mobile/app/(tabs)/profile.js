@@ -1,17 +1,29 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { client } from '../../src/api/index.js';
 import { Screen } from '../../src/components/Screen.js';
 import { Card } from '../../src/components/Card.js';
 import { Chip } from '../../src/components/Chip.js';
 import { Button } from '../../src/components/Button.js';
 import { setLocale } from '../../src/i18n/index.js';
+import { useAuthStore } from '../../src/store/authStore.js';
 import { colors, fonts, spacing, typeScale } from '../../src/theme.js';
 
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const active = i18n.language;
+  const canResetDemo =
+    (process.env.EXPO_PUBLIC_API_MODE ?? 'mock') === 'mock' && typeof client.reset === 'function';
+
+  const resetDemo = async () => {
+    await client.reset();
+    queryClient.clear();
+    useAuthStore.getState().hydrate();
+  };
   return (
     <Screen>
       <Text
@@ -46,6 +58,15 @@ export default function ProfileScreen() {
         onPress={() => router.push('/reminders')}
         style={styles.remindersButton}
       />
+      {canResetDemo ? (
+        <Button
+          testID="dev-demo-reset"
+          variant="terracotta"
+          label={t('profile.devReset')}
+          onPress={resetDemo}
+          style={styles.remindersButton}
+        />
+      ) : null}
     </Screen>
   );
 }

@@ -162,7 +162,8 @@
     "language": "اللغة",
     "english": "English",
     "arabic": "العربية",
-    "reminders": "تذكيرات السقاية"
+    "reminders": "تذكيرات السقاية",
+    "devReset": "DEV · صفّر بيانات العرض"
   },
   "reminders": {
     "title": "تذكيرات السقاية",

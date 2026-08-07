@@ -146,7 +146,8 @@
     "language": "Language",
     "english": "English",
     "arabic": "العربية",
-    "reminders": "Watering reminders"
+    "reminders": "Watering reminders",
+    "devReset": "DEV · Reset demo data"
   },
   "reminders": {
     "title": "Watering reminders",
