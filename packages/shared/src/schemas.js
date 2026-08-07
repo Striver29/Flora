@@ -39,3 +39,11 @@ export const RegisterDeviceSchema = z.object({
   pushToken: z.string().min(1),
   platform: z.enum(['android', 'ios']),
 });
+
+/** Lebanese climate zones used to tune care schedules. */
+export const ClimateZones = Object.freeze(['COASTAL', 'MOUNTAIN', 'BEKAA', 'SOUTH']);
+
+/** Payload for PATCH /me — profile updates from the mobile app. */
+export const UpdateMeSchema = z.object({
+  climateZone: z.enum(ClimateZones),
+});

@@ -17,6 +17,8 @@ import { mockClient } from './mockClient.js';
  *   auth.logout()                                  → null
  *   auth.me()                                      → { user } | null
  *
+ *   me.update({ climateZone })                     → { user }        UpdateMeSchema
+ *
  *   species.list()                                 → SpeciesDto[]
  *   species.get(id)                                → SpeciesDto
  *

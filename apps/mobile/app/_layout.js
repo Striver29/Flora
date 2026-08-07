@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,6 +11,7 @@ import {
 } from '@expo-google-fonts/baloo-bhaijaan-2';
 import { setPersistentStorage } from '../src/api/storage.js';
 import { initLocale } from '../src/i18n/index.js';
+import { useAuthStore } from '../src/store/authStore.js';
 import { colors } from '../src/theme.js';
 
 // On-device, the mock client persists through AsyncStorage (in tests/node it
@@ -27,10 +28,23 @@ export default function RootLayout() {
     BalooBhaijaan2_600SemiBold,
     BalooBhaijaan2_700Bold,
   });
+  const user = useAuthStore((state) => state.user);
+  const hydrated = useAuthStore((state) => state.hydrated);
+  const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
     initLocale();
+    useAuthStore.getState().hydrate();
   }, []);
+
+  // Auth guard: once the session state is known, anonymous users only see /auth/*.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!user && segments[0] !== 'auth') {
+      router.replace('/auth/sign-in');
+    }
+  }, [hydrated, user, segments, router]);
 
   if (!fontsLoaded) return null;
 

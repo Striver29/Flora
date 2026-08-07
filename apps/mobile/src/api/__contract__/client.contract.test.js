@@ -174,6 +174,15 @@ export function runClientContract(
       expect(missing.error.code).toBe('NOT_FOUND');
     });
 
+    it('updates the profile climate zone via me.update', async () => {
+      const client = makeClient();
+      const updated = await settle(client.me.update({ climateZone: 'BEKAA' }));
+      expect(updated.ok).toBe(true);
+      expect(updated.data.user.climateZone).toBe('BEKAA');
+      const invalid = await settle(client.me.update({ climateZone: 'DESERT' }));
+      expect(invalid.error.code).toBe('VALIDATION');
+    });
+
     it('validates device registration', async () => {
       const client = makeClient();
       const bad = await settle(client.devices.register({ pushToken: 'tok', platform: 'web' }));

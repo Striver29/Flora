@@ -5,4 +5,6 @@ export {
   CreateScheduleSchema,
   CreatePostSchema,
   RegisterDeviceSchema,
+  ClimateZones,
+  UpdateMeSchema,
 } from './schemas.js';

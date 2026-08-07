@@ -30,5 +30,25 @@
     "language": "Language",
     "english": "English",
     "arabic": "العربية"
+  },
+  "auth": {
+    "signInTitle": "Welcome back",
+    "signUpTitle": "Create your account",
+    "username": "Username",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "noAccount": "New to Flora? Create an account",
+    "haveAccount": "Already have an account? Sign in",
+    "passwordsMismatch": "Passwords do not match",
+    "zoneTitle": "Where do you grow?",
+    "zoneHint": "Flora tunes watering schedules to your climate zone.",
+    "zones": {
+      "COASTAL": { "name": "Coastal", "hint": "Beirut, Tripoli, Saida — mild and humid" },
+      "MOUNTAIN": { "name": "Mountain", "hint": "Cool nights and snowy winters" },
+      "BEKAA": { "name": "Bekaa", "hint": "Dry summers, cold winters" },
+      "SOUTH": { "name": "South", "hint": "Warm and sunny most of the year" }
+    }
   }
 }

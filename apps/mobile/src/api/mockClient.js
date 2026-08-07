@@ -6,6 +6,7 @@ import {
   ErrorCode,
   RegisterDeviceSchema,
   SignupSchema,
+  UpdateMeSchema,
   fail,
   ok,
 } from '@flora/shared';
@@ -195,6 +196,21 @@ export function createMockClient({ storage } = {}) {
         return call(() => {
           const user = currentUser();
           return ok(user ? { user: publicUser(user) } : null);
+        });
+      },
+    },
+
+    me: {
+      /** Update the signed-in user's profile. Validates UpdateMeSchema. */
+      update(input) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const { data, error } = parseWith(UpdateMeSchema, input);
+          if (error) return error;
+          Object.assign(user, data);
+          schedulePersist();
+          return ok({ user: publicUser(user) });
         });
       },
     },

@@ -5,6 +5,7 @@ import {
   CreateScheduleSchema,
   RegisterDeviceSchema,
   SignupSchema,
+  UpdateMeSchema,
 } from '../schemas.js';
 
 /**
@@ -82,6 +83,23 @@ describe('CreatePostSchema', () => {
   it('rejects images that are not an array of strings', () => {
     const result = CreatePostSchema.safeParse({ images: 'uploads/1.jpg' });
     expect(issuePaths(result)).toContain('images');
+  });
+});
+
+describe('UpdateMeSchema', () => {
+  it('accepts a supported climate zone', () => {
+    const result = UpdateMeSchema.safeParse({ climateZone: 'BEKAA' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an unknown climate zone', () => {
+    const result = UpdateMeSchema.safeParse({ climateZone: 'DESERT' });
+    expect(issuePaths(result)).toContain('climateZone');
+  });
+
+  it('rejects a missing climate zone', () => {
+    const result = UpdateMeSchema.safeParse({});
+    expect(issuePaths(result)).toContain('climateZone');
   });
 });
 

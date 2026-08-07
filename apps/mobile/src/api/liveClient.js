@@ -16,6 +16,9 @@ export const liveClient = {
     logout: notImplemented('auth.logout'),
     me: notImplemented('auth.me'),
   },
+  me: {
+    update: notImplemented('me.update'),
+  },
   species: {
     list: notImplemented('species.list'),
     get: notImplemented('species.get'),
