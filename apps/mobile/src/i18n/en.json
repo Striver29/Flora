@@ -25,7 +25,9 @@
   },
   "explore": {
     "title": "Explore",
-    "hint": "Browse species and care guides"
+    "hint": "Browse species and care guides",
+    "searchPlaceholder": "Search species — basil, زيتون…",
+    "add": "+ Add"
   },
   "community": {
     "title": "Community",
