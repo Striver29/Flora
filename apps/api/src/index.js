@@ -1,6 +1,10 @@
+export { createApp } from './app.js';
+export { loadConfig, config } from './config.js';
+export { createRecognitionProvider, normalizePlantIdResponse } from './recognition/index.js';
+
 /**
- * Placeholder entry for the Express API (scaffolded in a later phase).
- * @returns {string} package identifier
+ * Package identifier.
+ * @returns {string}
  */
 export function serviceName() {
   return 'api';

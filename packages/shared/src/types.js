@@ -34,7 +34,9 @@
 /**
  * A detected health issue with suggested treatments.
  * @typedef {Object} HealthIssue
- * @property {string} name
+ * @property {string} code canonical IssueCode; provider wording is matched onto
+ *   this so localized copy can key off a stable value (see issues.js)
+ * @property {string} name provider-supplied display name, English for now
  * @property {number} probability 0..1
  * @property {string[]} treatmentHints
  */

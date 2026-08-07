@@ -1,4 +1,5 @@
 export { ErrorCode, ok, fail } from './response.js';
+export { IssueCode, IssueCodes, matchIssueCode } from './issues.js';
 export {
   SignupSchema,
   CreatePlantSchema,
@@ -7,4 +8,12 @@ export {
   RegisterDeviceSchema,
   ClimateZones,
   UpdateMeSchema,
+  DiagnosisModes,
+  DiagnosisStatuses,
+  LOW_CONFIDENCE_THRESHOLD,
+  SpeciesCandidateSchema,
+  HealthIssueSchema,
+  HealthAssessmentSchema,
+  RecognitionResultSchema,
+  CreateDiagnosisSchema,
 } from './schemas.js';
