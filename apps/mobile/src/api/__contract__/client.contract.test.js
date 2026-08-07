@@ -150,6 +150,20 @@ export function runClientContract(
       expect(done.data.lowConfidence).toBe(true);
     });
 
+    it('attaches a diagnosis to a plant so it appears in its timeline', async () => {
+      const client = makeClient();
+      if (!client.setNextDiagnosisFixture) return;
+      client.setNextDiagnosisFixture('healthy-basil');
+      const created = await settle(client.diagnoses.create({ imageUri: 'x.jpg', mode: 'health' }));
+      await wait(3100);
+      await settle(client.diagnoses.get(created.data.id));
+      const attached = await settle(client.diagnoses.attach(created.data.id, 'p3'));
+      expect(attached.ok).toBe(true);
+      expect(attached.data.plantId).toBe('p3');
+      const timeline = await settle(client.plants.timeline('p3'));
+      expect(timeline.data.items.some((item) => item.id === created.data.id)).toBe(true);
+    });
+
     it('escalates a completed diagnosis into a HELP post', async () => {
       const client = makeClient();
       if (!client.setNextDiagnosisFixture) return;

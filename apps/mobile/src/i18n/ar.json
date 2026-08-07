@@ -98,6 +98,39 @@
   "diagnosis": {
     "title": "التشخيص"
   },
+  "diagnose": {
+    "identify": "تعرّف",
+    "diagnose": "شخّص",
+    "gallery": "الصور",
+    "progress1": "عم نقرأ الأوراق…",
+    "progress2": "عم نقارن مع مواسم لبنان…",
+    "needsCare": "بحاجة لشوية عناية",
+    "healthyTitle": "شكلها ممتاز!",
+    "healthySub": "ما لقينا مشاكل. كمّل هيك.",
+    "lowConfidenceNote": "مش متأكدين تماماً — حدا من المزارعين بيساعد.",
+    "suggestions": "أقرب النتائج",
+    "issues": "شو لقينا",
+    "treatment": "خطة العلاج",
+    "waterLine_zero": "اسقيها كل {{count}} يوم بمنطقتك",
+    "waterLine_one": "اسقيها كل يوم بمنطقتك",
+    "waterLine_two": "اسقيها كل يومين بمنطقتك",
+    "waterLine_few": "اسقيها كل {{count}} أيام بمنطقتك",
+    "waterLine_many": "اسقيها كل {{count}} يوم بمنطقتك",
+    "waterLine_other": "اسقيها كل {{count}} يوم بمنطقتك",
+    "saveToPlant": "احفظها بنبتة",
+    "saved": "انحفظت ✓",
+    "newPlant": "نبتة جديدة",
+    "askCommunity": "اسأل المجتمع",
+    "communityHint": "المزارعون اللبنانيون عادة بيردوا خلال ساعة.",
+    "done": "تم",
+    "failedTitle": "شي ذبل بالطريق",
+    "failedBody": "ما قدرنا نكمل الفحص. جرب مرة تانية.",
+    "retry": "جرب مرة تانية",
+    "devFixture": "DEV · {{name}}"
+  },
+  "post": {
+    "title": "منشور"
+  },
   "profile": {
     "title": "حسابي",
     "language": "اللغة",

@@ -86,6 +86,35 @@
   "diagnosis": {
     "title": "Diagnosis"
   },
+  "diagnose": {
+    "identify": "Identify",
+    "diagnose": "Diagnose",
+    "gallery": "Gallery",
+    "progress1": "Reading the leaves…",
+    "progress2": "Checking against Lebanese seasons…",
+    "needsCare": "Needs a little care",
+    "healthyTitle": "Looking healthy!",
+    "healthySub": "No issues found. Keep it up.",
+    "lowConfidenceNote": "We're not fully sure — a fellow grower can help.",
+    "suggestions": "Best matches",
+    "issues": "What we found",
+    "treatment": "Treatment plan",
+    "waterLine_one": "Water every day in your zone",
+    "waterLine_other": "Water every {{count}} days in your zone",
+    "saveToPlant": "Save to plant",
+    "saved": "Saved ✓",
+    "newPlant": "New plant",
+    "askCommunity": "Ask the community",
+    "communityHint": "Lebanese growers usually reply within the hour.",
+    "done": "Done",
+    "failedTitle": "Something wilted",
+    "failedBody": "We couldn't finish the check. Give it another try.",
+    "retry": "Try again",
+    "devFixture": "DEV · {{name}}"
+  },
+  "post": {
+    "title": "Post"
+  },
   "profile": {
     "title": "Profile",
     "language": "Language",

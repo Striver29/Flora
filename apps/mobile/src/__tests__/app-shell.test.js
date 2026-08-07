@@ -18,7 +18,7 @@ describe('app shell', () => {
     const app = renderRouter('./app', { initialUrl: '/' });
     await app;
     fireEvent.press(await screen.findByTestId('camera-tab-button'));
-    await waitFor(() => expect(screen.getByTestId('camera-modal-title')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('diagnose-capture')).toBeTruthy());
     expect(app).toHavePathname('/camera');
   });
 });

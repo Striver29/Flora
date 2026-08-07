@@ -39,6 +39,7 @@ import { mockClient } from './mockClient.js';
  *   diagnoses.create({ plantId?, imageUri, mode? }) → { id, status: 'PENDING' }  mode: 'identify' | 'health'
  *   diagnoses.get(id)                              → Diagnosis       flips to COMPLETE after ~3s;
  *                                                     lowConfidence: true when confidence < 0.55
+ *   diagnoses.attach(id, plantId)                  → { id, plantId }  links a diagnosis to a plant
  *   diagnoses.escalate(id)                         → Post            HELP post embedding
  *                                                     { imageUri, topIssue, confidence }
  *

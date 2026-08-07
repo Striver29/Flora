@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +49,29 @@ export default function AddPlantScreen() {
   const [error, setError] = useState(null);
 
   useEffect(() => () => clearTimeout(pollTimer.current), []);
+
+  // Deep link from the diagnose flow: /add-plant?speciesId=…&photoUri=… lands
+  // straight on the confirm step with the species preselected.
+  const params = useLocalSearchParams();
+  useEffect(() => {
+    const speciesId =
+      typeof params.speciesId === 'string' && params.speciesId ? params.speciesId : null;
+    if (!speciesId || picked) return undefined;
+    let cancelled = false;
+    (async () => {
+      const res = await client.species.get(speciesId);
+      if (cancelled || !res.ok) return;
+      if (typeof params.photoUri === 'string' && params.photoUri) setPhotoUri(params.photoUri);
+      pick({
+        speciesId,
+        commonName: localName(res.data.commonNames, res.data.scientificName),
+        scientificName: res.data.scientificName,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.speciesId]);
 
   // 300ms debounced species search
   useEffect(() => {

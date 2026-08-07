@@ -41,6 +41,7 @@ export const liveClient = {
   diagnoses: {
     create: notImplemented('diagnoses.create'),
     get: notImplemented('diagnoses.get'),
+    attach: notImplemented('diagnoses.attach'),
     escalate: notImplemented('diagnoses.escalate'),
   },
   posts: {

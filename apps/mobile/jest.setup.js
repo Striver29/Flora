@@ -30,3 +30,14 @@ jest.mock('expo-image-picker', () => ({
   launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: null })),
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
 }));
+
+// expo-camera is native; render a plain host element with granted permissions.
+jest.mock('expo-camera', () => {
+  const React = jest.requireActual('react');
+  return {
+    CameraView: React.forwardRef((props, ref) =>
+      React.createElement('CameraView', { ...props, ref }),
+    ),
+    useCameraPermissions: () => [{ granted: true }, jest.fn(async () => ({ granted: true }))],
+  };
+});

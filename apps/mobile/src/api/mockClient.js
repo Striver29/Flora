@@ -524,6 +524,26 @@ export function createMockClient({ storage } = {}) {
           );
         });
       },
+      /** Attach a diagnosis to one of the user's plants (shows in its timeline). */
+      attach(id, plantId) {
+        return call(() => {
+          const user = currentUser();
+          if (!user) return notLoggedIn();
+          const idCheck = parseWith(IdSchema, id);
+          if (idCheck.error) return idCheck.error;
+          const plantCheck = parseWith(IdSchema, plantId);
+          if (plantCheck.error) return plantCheck.error;
+          const diagnosis = store.diagnoses.find((entry) => entry.id === id);
+          if (!diagnosis) return fail(ErrorCode.NOT_FOUND, `diagnosis ${id} not found`);
+          const plant = store.plants.find(
+            (entry) => entry.id === plantId && entry.ownerId === user.id,
+          );
+          if (!plant) return fail(ErrorCode.NOT_FOUND, `plant ${plantId} not found`);
+          diagnosis.plantId = plant.id;
+          schedulePersist();
+          return ok({ id: diagnosis.id, plantId: plant.id });
+        });
+      },
       /** Turn a completed diagnosis into a community HELP post. */
       escalate(id) {
         return call(() => {
