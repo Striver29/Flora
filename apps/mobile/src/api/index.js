@@ -36,8 +36,11 @@ import { mockClient } from './mockClient.js';
  *   schedules.list(plantId)                        → Schedule[]
  *   schedules.create(plantId, input)               → Schedule        CreateScheduleSchema
  *
- *   diagnoses.create({ plantId?, imageUri, mode? }) → { id, status: 'PENDING' }  mode: 'identify' | 'health'
- *   diagnoses.get(id)                              → Diagnosis       flips to COMPLETE after ~3s;
+ *   diagnoses.create({ plantId?, imageUri, imageBase64?, mode? })
+ *                                                  → { id, status: 'PENDING' }  mode: 'identify' | 'health'
+ *                                                     imageBase64 is required by the live scanner and
+ *                                                     ignored by the mock; imageUri is the reverse.
+ *   diagnoses.get(id)                              → Diagnosis       flips to COMPLETE after ~3s (mock);
  *                                                     lowConfidence: true when confidence < 0.55
  *   diagnoses.attach(id, plantId)                  → { id, plantId }  links a diagnosis to a plant
  *   diagnoses.escalate(id)                         → Post            HELP post embedding
@@ -60,7 +63,55 @@ import { mockClient } from './mockClient.js';
  *
  *   devices.register(input)                        → { registered: true }  RegisterDeviceSchema
  *
+ * Extra properties:
+ *   sendsImageBytes  true when diagnoses.create needs imageBase64 (live scanning)
+ *
  * Mock-only helpers (absent on the live client):
- *   setNextDiagnosisFixture('healthy-basil' | 'diseased-tomato' | 'blurry'), reset()
+ *   setNextDiagnosisFixture('healthy-basil' | 'diseased-tomato' | 'blurry'), reset(),
+ *   importDiagnosis(diagnosis)
  */
-export const client = process.env.EXPO_PUBLIC_API_MODE === 'live' ? liveClient : mockClient;
+
+const isLiveMode = process.env.EXPO_PUBLIC_API_MODE === 'live';
+
+/**
+ * Live-scan mode: run the real Plant.id scanner while the rest of the app stays
+ * on the offline mock.
+ *
+ * This exists because the API currently only implements diagnoses — flipping
+ * EXPO_PUBLIC_API_MODE=live would break auth, the garden and the community
+ * feed. It also keeps 'mock' fully offline, which the mentor demo depends on
+ * (docs/demo-script.md flips airplane mode on stage).
+ *
+ * Scoped deliberately: only create/get go to the server. attach/escalate stay
+ * mock-backed because they touch plants and posts, which have no API yet.
+ */
+const useLiveScan = !isLiveMode && process.env.EXPO_PUBLIC_LIVE_SCAN === '1';
+
+/**
+ * Wrap the mock so scans run against the API and their results are adopted back
+ * into the mock store, keeping "Save to plant" and "Ask the community" working.
+ * @param {typeof mockClient} base
+ */
+function withLiveScan(base) {
+  return {
+    ...base,
+    sendsImageBytes: true,
+    diagnoses: {
+      ...base.diagnoses,
+      create: liveClient.diagnoses.create,
+      async get(id) {
+        const response = await liveClient.diagnoses.get(id);
+        if (response.ok && response.data.status === 'COMPLETE') {
+          // Mirror into the mock store so the downstream actions can find it.
+          // Fire-and-forget: a failed mirror must not break the result screen.
+          base.importDiagnosis?.(response.data).catch(() => {});
+        }
+        return response;
+      },
+    },
+  };
+}
+
+const base = isLiveMode ? liveClient : mockClient;
+
+export const client = useLiveScan ? withLiveScan(base) : { ...base, sendsImageBytes: isLiveMode };

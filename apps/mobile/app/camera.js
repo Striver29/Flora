@@ -43,6 +43,8 @@ export default function CameraModal() {
   const [mode, setMode] = useState(plantId ? 'health' : 'identify');
   const [phase, setPhase] = useState('camera'); // camera | analyzing | result | failed
   const [imageUri, setImageUri] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [failureMessage, setFailureMessage] = useState(null);
   const [diagnosis, setDiagnosis] = useState(null);
   const [progressIndex, setProgressIndex] = useState(0);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -75,6 +77,9 @@ export default function CameraModal() {
     pollTimer.current = setTimeout(async () => {
       const res = await client.diagnoses.get(id);
       if (!res.ok || res.data.status === 'FAILED') {
+        // The server reports why on the row itself; surface it so a bad API key
+        // or an unreachable host is diagnosable from the phone.
+        setFailureMessage(res.ok ? (res.data.error?.message ?? null) : res.error.message);
         setPhase('failed');
         return;
       }
@@ -91,34 +96,49 @@ export default function CameraModal() {
     }, POLL_INTERVAL_MS);
   };
 
-  const analyze = async (uri) => {
+  // The mock reads photos by URI; the live scanner needs the bytes. Only ask the
+  // camera for base64 when it will actually be sent — decoding a full-size photo
+  // to a string is not free, and the offline demo never needs it.
+  const needsBytes = client.sendsImageBytes === true;
+
+  const analyze = async (uri, base64) => {
     setImageUri(uri);
+    setImageBase64(base64 ?? null);
     setPhase('analyzing');
     setDiagnosis(null);
     setSavedTo(null);
     const created = await client.diagnoses.create({
       imageUri: uri,
+      ...(base64 && { imageBase64: base64 }),
       mode,
       ...(plantId && { plantId }),
     });
     if (!created.ok) {
+      setFailureMessage(created.error.message);
       setPhase('failed');
       return;
     }
+    setFailureMessage(null);
     poll(created.data.id, 0);
   };
 
   const capture = async () => {
-    const photo = await cameraRef.current?.takePictureAsync?.({ quality: 0.8 });
-    if (photo?.uri) analyze(photo.uri);
+    const photo = await cameraRef.current?.takePictureAsync?.({
+      quality: 0.8,
+      base64: needsBytes,
+    });
+    if (photo?.uri) analyze(photo.uri, photo.base64);
   };
 
   const pickFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
+      base64: needsBytes,
     });
-    if (!result.canceled && result.assets?.[0]) analyze(result.assets[0].uri);
+    if (!result.canceled && result.assets?.[0]) {
+      analyze(result.assets[0].uri, result.assets[0].base64);
+    }
   };
 
   const cycleFixture = () => {
@@ -277,10 +297,15 @@ export default function CameraModal() {
             {t('diagnose.failedTitle')}
           </Text>
           <Text style={styles.failedBody}>{t('diagnose.failedBody')}</Text>
+          {failureMessage ? (
+            <Text testID="diagnose-failed-detail" style={styles.failedDetail}>
+              {failureMessage}
+            </Text>
+          ) : null}
           <Button
             testID="diagnose-retry"
             label={t('diagnose.retry')}
-            onPress={() => analyze(imageUri)}
+            onPress={() => analyze(imageUri, imageBase64)}
             style={styles.failedRetry}
           />
           <Button variant="ghost" label={t('diagnose.done')} onPress={() => router.back()} />
@@ -577,6 +602,12 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
     fontFamily: fonts.body,
     fontSize: typeScale.body,
+    textAlign: 'center',
+  },
+  failedDetail: {
+    color: colors.mutedText,
+    fontFamily: fonts.body,
+    fontSize: typeScale.micro,
     textAlign: 'center',
   },
   failedRetry: {

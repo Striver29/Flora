@@ -885,6 +885,49 @@ export function createMockClient({ storage } = {}) {
       nextFixtureName = name;
     },
 
+    /**
+     * Mock-only: adopt a diagnosis that was produced elsewhere.
+     *
+     * Bridges the live-scan mode (EXPO_PUBLIC_LIVE_SCAN=1), where the scan runs
+     * against the real API but plants and posts are still mock-backed. Without
+     * this, "Save to plant" and "Ask the community" would not find a server-side
+     * diagnosis in the mock store and would fail with NOT_FOUND.
+     *
+     * Existing ids are replaced rather than duplicated, so re-polling a
+     * completed diagnosis is idempotent.
+     *
+     * @param {{id: string, plantId?: string|null, imageUri?: string|null, mode?: string|null, result: object, lowConfidence?: boolean|null}} diagnosis
+     */
+    importDiagnosis(diagnosis) {
+      return call(() => {
+        const user = currentUser();
+        if (!user) return notLoggedIn();
+        if (!diagnosis?.id || !diagnosis?.result) {
+          return fail(ErrorCode.VALIDATION, 'importDiagnosis needs an id and a result');
+        }
+
+        const row = {
+          id: diagnosis.id,
+          userId: user.id,
+          plantId: diagnosis.plantId ?? null,
+          imageUri: diagnosis.imageUri ?? null,
+          mode: diagnosis.mode ?? null,
+          status: 'COMPLETE',
+          fixtureName: null,
+          createdAt: Date.now(),
+          result: clone(diagnosis.result),
+          lowConfidence: diagnosis.lowConfidence ?? null,
+        };
+
+        const index = store.diagnoses.findIndex((entry) => entry.id === row.id);
+        if (index >= 0) store.diagnoses[index] = row;
+        else store.diagnoses.push(row);
+
+        schedulePersist();
+        return ok({ id: row.id });
+      });
+    },
+
     /** Mock-only: wipe the persisted snapshot and restore the seed data. */
     async reset() {
       if (persistTimer) {
