@@ -76,6 +76,28 @@ export function runClientContract(
       expect(Date.parse(res.data.nextDueAt) - Date.parse(res.data.wateredAt)).toBe(17 * DAY_MS);
     });
 
+    it('waters on the custom schedule once one is set', async () => {
+      const client = makeClient();
+      // p1 is basil: species default is 2 days for a COASTAL user.
+      const before = await settle(client.plants.markWatered('p1'));
+      expect(Date.parse(before.data.nextDueAt) - Date.parse(before.data.wateredAt)).toBe(2 * DAY_MS);
+
+      await settle(client.schedules.create('p1', { type: 'WATER', intervalDays: 5 }));
+
+      // The grower is looking at the actual pot; their interval wins from here.
+      const after = await settle(client.plants.markWatered('p1'));
+      expect(Date.parse(after.data.nextDueAt) - Date.parse(after.data.wateredAt)).toBe(5 * DAY_MS);
+    });
+
+    it('keeps using the species interval for a schedule with no custom days', async () => {
+      const client = makeClient();
+      // autoSchedule on the add-plant flow creates a WATER schedule with no
+      // intervalDays — that must not be read as "0" or override anything.
+      await settle(client.schedules.create('p1', { type: 'WATER' }));
+      const res = await settle(client.plants.markWatered('p1'));
+      expect(Date.parse(res.data.nextDueAt) - Date.parse(res.data.wateredAt)).toBe(2 * DAY_MS);
+    });
+
     it('returns a mixed, paginated plant timeline', async () => {
       const client = makeClient();
       const page1 = await settle(client.plants.timeline('p1', { limit: 1 }));

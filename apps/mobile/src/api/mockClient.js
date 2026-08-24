@@ -377,7 +377,14 @@ export function createMockClient({ storage } = {}) {
           const species = store.species.find((entry) => entry.id === plant.speciesId);
           const waterEveryDays = species?.care.waterEveryDays ?? DEFAULT_WATER_EVERY_DAYS;
           const multiplier = species?.zoneMultipliers?.[user.climateZone] ?? 1;
-          const intervalDays = Math.max(1, Math.round(waterEveryDays * multiplier));
+          // A custom WATER schedule wins over the species default. The grower is
+          // looking at the actual pot, soil and window; the catalog is a guess
+          // for the species in the abstract. Without this the stepper on the
+          // plant screen silently reverted the moment they watered.
+          const custom = store.schedules.find(
+            (entry) => entry.plantId === plant.id && entry.type === 'WATER',
+          )?.intervalDays;
+          const intervalDays = custom ?? Math.max(1, Math.round(waterEveryDays * multiplier));
           const wateredAt = Date.now();
           plant.lastWateredAt = new Date(wateredAt).toISOString();
           plant.nextDueAt = new Date(wateredAt + intervalDays * DAY_MS).toISOString();
