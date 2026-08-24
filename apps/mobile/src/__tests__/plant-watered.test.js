@@ -75,7 +75,9 @@ it('updates the chip optimistically and rolls back when markWatered fails', asyn
   // wait for the species query so the optimistic update uses the real 2-day interval
   expect((await screen.findAllByText('Every 2 days')).length).toBeGreaterThan(0);
 
+  // Watering asks first — it restarts the cycle and there is no undo.
   await fireEvent.press(screen.getByTestId('mark-watered'));
+  await fireEvent.press(await screen.findByTestId('confirm-water'));
   // optimistic: basil at COASTAL waters every 2 days
   expect(await screen.findByText('in 2d')).toBeTruthy();
   expect(screen.queryByText('Water now')).toBeNull();

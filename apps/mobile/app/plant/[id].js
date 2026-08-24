@@ -15,6 +15,7 @@ import { Card } from '../../src/components/Card.js';
 import { Button } from '../../src/components/Button.js';
 import { Field } from '../../src/components/Field.js';
 import { WaterChip } from '../../src/components/WaterChip.js';
+import { IntervalDial } from '../../src/components/IntervalDial.js';
 import { useAuthStore } from '../../src/store/authStore.js';
 import { colors, fonts, radii, spacing, typeScale } from '../../src/theme.js';
 
@@ -44,6 +45,9 @@ export default function PlantDetailScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [note, setNote] = useState('');
   const [logPhoto, setLogPhoto] = useState(null);
+  // Watering restarts the cycle and rewrites nextDueAt, and there is no undo.
+  // A mis-tap on a scrolling screen should not silently move the schedule.
+  const [confirmWater, setConfirmWater] = useState(false);
 
   const plantQuery = useQuery({
     queryKey: ['plant', plantId],
@@ -102,9 +106,8 @@ export default function PlantDetailScreen() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['plant', plantId] }),
   });
   const displayDays = intervalMutation.isPending ? intervalMutation.variables : currentDays;
-  const step = (delta) => {
-    const next = Math.min(60, Math.max(1, currentDays + delta));
-    if (next !== currentDays) intervalMutation.mutate(next);
+  const setInterval = (days) => {
+    if (days !== currentDays) intervalMutation.mutate(days);
   };
 
   const logMutation = useMutation({
@@ -181,32 +184,12 @@ export default function PlantDetailScreen() {
       <Card style={styles.scheduleCard}>
         <View style={styles.scheduleTop}>
           <WaterChip nextDueAt={plant.nextDueAt} testID="plant-water-chip" />
-          <View style={styles.stepper}>
-            <Pressable
-              testID="interval-minus"
-              accessibilityRole="button"
-              onPress={() => step(-1)}
-              style={styles.stepBtn}
-            >
-              <Ionicons name="remove" size={16} color={colors.primary} />
-            </Pressable>
-            <Text testID="interval-value" style={styles.stepValue}>
-              {t('plantDetail.everyNDays', { count: displayDays })}
-            </Text>
-            <Pressable
-              testID="interval-plus"
-              accessibilityRole="button"
-              onPress={() => step(1)}
-              style={styles.stepBtn}
-            >
-              <Ionicons name="add" size={16} color={colors.primary} />
-            </Pressable>
-          </View>
         </View>
+        <IntervalDial testID="interval-dial" value={displayDays} onChange={setInterval} />
         <Button
           testID="mark-watered"
           label={t('plantDetail.wateredToday')}
-          onPress={() => watered.mutate()}
+          onPress={() => setConfirmWater(true)}
           disabled={watered.isPending}
         />
       </Card>
@@ -332,6 +315,39 @@ export default function PlantDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={confirmWater}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmWater(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <Pressable style={styles.backdropTouch} onPress={() => setConfirmWater(false)} />
+          <View style={styles.sheet}>
+            <Text style={[styles.sheetTitle, { fontFamily: displayFont }]}>
+              {t('plantDetail.confirmWaterTitle')}
+            </Text>
+            <Text testID="confirm-water-body" style={styles.sheetHint}>
+              {t('plantDetail.confirmWaterBody', { count: displayDays })}
+            </Text>
+            <Button
+              testID="confirm-water"
+              label={t('plantDetail.confirmWater')}
+              onPress={() => {
+                setConfirmWater(false);
+                watered.mutate();
+              }}
+            />
+            <Button
+              testID="cancel-water"
+              variant="ghost"
+              label={t('plantDetail.cancelWater')}
+              onPress={() => setConfirmWater(false)}
+            />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -391,24 +407,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  stepper: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  stepBtn: {
-    alignItems: 'center',
-    backgroundColor: colors.greenTint,
-    borderRadius: radii.pill,
-    height: 28,
-    justifyContent: 'center',
-    width: 28,
-  },
-  stepValue: {
-    color: colors.ink,
-    fontFamily: fonts.bodySemi,
-    fontSize: typeScale.caption,
   },
   timelineHeader: {
     alignItems: 'center',
@@ -483,6 +481,12 @@ const styles = StyleSheet.create({
   sheetTitle: {
     color: colors.ink,
     fontSize: typeScale.title,
+  },
+  sheetHint: {
+    color: colors.mutedText,
+    fontFamily: fonts.body,
+    fontSize: typeScale.body,
+    marginBottom: spacing.sm,
   },
   sheetItem: {
     alignSelf: 'flex-start',
