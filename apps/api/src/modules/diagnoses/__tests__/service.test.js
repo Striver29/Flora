@@ -24,16 +24,27 @@ const uncertain = {
  */
 function makeService(overrides = {}) {
   const store = createDiagnosisStore();
+  const logger = overrides.logger ?? { error: vi.fn() };
   const service = createDiagnosisService({
     store,
     recognize: overrides.recognize ?? (async () => healthy),
     maxImageBytes: overrides.maxImageBytes ?? 1024 * 1024,
     timeoutMs: overrides.timeoutMs ?? 45_000,
-    logger: { error: vi.fn() },
+    logger,
+    ...(overrides.advise ? { advise: overrides.advise } : {}),
     ...(overrides.now ? { now: overrides.now } : {}),
   });
-  return { service, store };
+  return { service, store, logger };
 }
+
+/** A schema-valid care plan, as the LLM provider would return it. */
+const advice = {
+  summary: 'Healthy basil. Keep it productive.',
+  steps: [
+    { action: 'Pinch off flower buds', when: 'Weekly', why: 'Flowering turns the leaves bitter' },
+  ],
+  watchFor: [],
+};
 
 describe('diagnoses service', () => {
   let service;
@@ -184,5 +195,81 @@ describe('diagnoses service', () => {
     expect(first.id).not.toBe(second.id);
     expect(service.get(first.id).data.lowConfidence).toBe(false);
     expect(service.get(second.id).data.lowConfidence).toBe(true);
+  });
+});
+
+describe('care advice', () => {
+  it('attaches advice to a completed diagnosis', async () => {
+    const { service } = makeService({ advise: async () => advice });
+    const { id } = service.create({ imageBase64: IMAGE }).data;
+    await service.settled(id);
+
+    const view = service.get(id).data;
+    expect(view.status).toBe('COMPLETE');
+    expect(view.result.advice).toEqual(advice);
+    // The recognition half must come through untouched alongside it.
+    expect(view.result.species).toEqual(healthy.species);
+  });
+
+  it('passes the climate zone through to the advice call', async () => {
+    const advise = vi.fn().mockResolvedValue(advice);
+    const { service } = makeService({ advise });
+    const { id } = service.create({ imageBase64: IMAGE, climateZone: 'BEKAA' }).data;
+    await service.settled(id);
+
+    expect(advise).toHaveBeenCalledWith(healthy, { climateZone: 'BEKAA' });
+  });
+
+  it('skips the call entirely on a low-confidence result', async () => {
+    const advise = vi.fn().mockResolvedValue(advice);
+    const { service } = makeService({ recognize: async () => uncertain, advise });
+    const { id } = service.create({ imageBase64: IMAGE }).data;
+    await service.settled(id);
+
+    // Advice built on a bad ID is worse than none — and this is what keeps
+    // model spend off unusable photos.
+    expect(advise).not.toHaveBeenCalled();
+    expect(service.get(id).data.status).toBe('COMPLETE');
+  });
+
+  it('still completes the diagnosis when the model fails', async () => {
+    const logger = { error: vi.fn() };
+    const { service } = makeService({
+      advise: async () => {
+        throw new Error('Bedrock exploded');
+      },
+      logger,
+    });
+    const { id } = service.create({ imageBase64: IMAGE }).data;
+    await service.settled(id);
+
+    const view = service.get(id).data;
+    expect(view.status).toBe('COMPLETE');
+    expect(view.result.species).toEqual(healthy.species);
+    expect(view.error).toBeNull();
+    expect(logger.error.mock.calls[0][0]).toMatch(/care advice failed/);
+  });
+
+  it('completes normally when no advice provider is configured', async () => {
+    const { service } = makeService();
+    const { id } = service.create({ imageBase64: IMAGE }).data;
+    await service.settled(id);
+
+    expect(service.get(id).data.status).toBe('COMPLETE');
+  });
+
+  it('never lets advice rescue a failed recognition', async () => {
+    const advise = vi.fn().mockResolvedValue(advice);
+    const { service } = makeService({
+      recognize: async () => {
+        throw new RecognitionProviderError('Plant.id returned 503', { status: 503 });
+      },
+      advise,
+    });
+    const { id } = service.create({ imageBase64: IMAGE }).data;
+    await service.settled(id);
+
+    expect(service.get(id).data.status).toBe('FAILED');
+    expect(advise).not.toHaveBeenCalled();
   });
 });

@@ -2,9 +2,24 @@ import express from 'express';
 import { ErrorCode, fail, ok } from '@flora/shared';
 import { config as defaultConfig } from './config.js';
 import { createRecognitionProvider } from './recognition/index.js';
+import { createLlmProvider } from './llm/index.js';
+import { requestCareAdvice } from './llm/careAdvice.js';
 import { createDiagnosisRoutes } from './modules/diagnoses/routes.js';
 import { createDiagnosisService } from './modules/diagnoses/service.js';
 import { createDiagnosisStore } from './modules/diagnoses/store.js';
+
+/**
+ * Bind the LLM provider into the shape the diagnosis service wants.
+ *
+ * Built once at startup rather than per request so the "using Bedrock" /
+ * "using fixture stubs" line is logged once, not on every scan.
+ *
+ * @param {ReturnType<import('./config.js').loadConfig>} config
+ */
+function defaultAdvise(config) {
+  const generate = createLlmProvider(config);
+  return (result, context) => requestCareAdvice(generate, result, context);
+}
 
 /**
  * Build the Express app.
@@ -15,6 +30,7 @@ import { createDiagnosisStore } from './modules/diagnoses/store.js';
  * @param {{
  *   config?: ReturnType<import('./config.js').loadConfig>,
  *   recognize?: (input: object) => Promise<object>,
+ *   advise?: (result: object, context: object) => Promise<object>,
  *   store?: ReturnType<typeof createDiagnosisStore>,
  *   logger?: Console,
  * }} [overrides]
@@ -22,6 +38,7 @@ import { createDiagnosisStore } from './modules/diagnoses/store.js';
 export function createApp({
   config = defaultConfig,
   recognize = createRecognitionProvider(config),
+  advise = defaultAdvise(config),
   store = createDiagnosisStore(),
   logger = console,
 } = {}) {
@@ -35,6 +52,7 @@ export function createApp({
   const service = createDiagnosisService({
     store,
     recognize,
+    advise,
     maxImageBytes: config.maxImageBytes,
     timeoutMs: config.recognitionTimeoutMs,
     logger,
