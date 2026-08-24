@@ -84,12 +84,41 @@ export const HealthAssessmentSchema = z.object({
 });
 
 /**
+ * One actionable step in a care plan. Every step answers three questions so the
+ * result card can lay them out as distinct lines instead of a wall of prose.
+ */
+export const CareStepSchema = z.object({
+  action: z.string().min(1),
+  when: z.string().min(1),
+  why: z.string().min(1),
+});
+
+/**
+ * Care advice derived from a completed diagnosis.
+ *
+ * No character ceilings anywhere in here, deliberately: this doubles as the
+ * JSON schema the model's output is constrained to, and a max() there turns a
+ * sentence that runs three words long into a hard validation failure and no
+ * advice at all. Length belongs in the prompt, where overshooting degrades
+ * instead of breaking.
+ */
+export const CareAdviceSchema = z.object({
+  summary: z.string().min(1),
+  steps: z.array(CareStepSchema).min(1).max(5),
+  watchFor: z.array(z.string().min(1)).max(3).default([]),
+});
+
+/**
  * Normalized recognition output. Every provider adapter must produce this
  * shape — it is what the mobile result screen renders.
  */
 export const RecognitionResultSchema = z.object({
   species: z.array(SpeciesCandidateSchema),
   health: HealthAssessmentSchema,
+  // Filled in after recognition by a separate model call that is allowed to
+  // fail. Defaulted rather than required so provider adapters — which know
+  // nothing about advice — keep parsing their own output unchanged.
+  advice: CareAdviceSchema.nullable().default(null),
 });
 
 /**
@@ -112,4 +141,53 @@ export const CreateDiagnosisSchema = z.object({
     }),
   mode: z.enum(DiagnosisModes).default('identify'),
   plantId: z.string().optional(),
+  // Tunes the care advice to the user's region. Optional: a diagnosis without
+  // it still succeeds, it just gets advice written for Lebanon generally.
+  climateZone: z.enum(ClimateZones).optional(),
+});
+
+/**
+ * What the client knows about a plant when there is no diagnosis to draft from.
+ *
+ * Passed inline rather than resolved from a plantId on purpose: the plants API
+ * does not exist yet, and the mobile store already holds every one of these
+ * fields. Once plants land server-side a plantId branch goes in front of this
+ * and the inline shape becomes the fallback, not dead code.
+ */
+export const DraftPlantContextSchema = z.object({
+  nickname: z.string().min(1),
+  speciesName: z.string().min(1).optional(),
+  /** Days since the plant was added — what turns into "I've had it 3 months". */
+  ageDays: z.number().int().min(0).optional(),
+  lastWateredAt: z.iso.datetime().nullish(),
+  /** How many growth logs exist, as a rough proxy for how closely it is tracked. */
+  logCount: z.number().int().min(0).optional(),
+});
+
+/**
+ * Payload for POST /drafts/post.
+ *
+ * Either half is enough on its own: a diagnosis produces a HELP post about the
+ * symptoms, a bare plant produces a show-and-tell post from its age and care
+ * history. Both together produce the best version of the former.
+ */
+export const DraftPostSchema = z
+  .object({
+    diagnosis: RecognitionResultSchema.nullable().default(null),
+    plant: DraftPlantContextSchema.nullable().default(null),
+  })
+  .refine((input) => input.diagnosis !== null || input.plant !== null, {
+    message: 'A draft needs a diagnosis, a plant, or both',
+    path: ['plant'],
+  });
+
+/**
+ * A drafted post body, returned by POST /drafts/post.
+ *
+ * Text only, and nothing is created server-side: the draft lands in the
+ * composer for the user to edit and submit themselves. Length is steered by the
+ * prompt rather than capped here — see the note on CareAdviceSchema.
+ */
+export const PostDraftSchema = z.object({
+  body: z.string().min(1),
 });

@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CareAdviceSchema,
+  CreateDiagnosisSchema,
   CreatePlantSchema,
   CreatePostSchema,
   CreateScheduleSchema,
+  DraftPostSchema,
+  RecognitionResultSchema,
   RegisterDeviceSchema,
   SignupSchema,
   UpdateMeSchema,
@@ -120,5 +124,124 @@ describe('RegisterDeviceSchema', () => {
   it('rejects a missing pushToken', () => {
     const result = RegisterDeviceSchema.safeParse({ platform: 'android' });
     expect(issuePaths(result)).toContain('pushToken');
+  });
+});
+
+/** A minimal valid recognition result, before advice is attached. */
+const recognized = {
+  species: [{ scientificName: 'Solanum lycopersicum', commonNames: ['Tomato'], probability: 0.88 }],
+  health: { isHealthy: false, issues: [], confidence: 0.84 },
+};
+
+describe('CareAdviceSchema', () => {
+  const advice = {
+    summary: 'Early blight, caught early and very treatable.',
+    steps: [{ action: 'Remove spotted lower leaves', when: 'Today', why: 'Spores splash upward' }],
+    watchFor: ['Spots climbing past the middle of the plant'],
+  };
+
+  it('accepts a complete care plan', () => {
+    expect(CareAdviceSchema.safeParse(advice).success).toBe(true);
+  });
+
+  it('defaults watchFor to an empty array', () => {
+    const result = CareAdviceSchema.safeParse({ summary: advice.summary, steps: advice.steps });
+    expect(result.success).toBe(true);
+    expect(result.data.watchFor).toEqual([]);
+  });
+
+  it('rejects a plan with no steps', () => {
+    expect(issuePaths(CareAdviceSchema.safeParse({ ...advice, steps: [] }))).toContain('steps');
+  });
+
+  it('rejects a step missing its reasoning', () => {
+    const steps = [{ action: 'Water less', when: 'Now' }];
+    expect(issuePaths(CareAdviceSchema.safeParse({ ...advice, steps }))).toContain('steps.0.why');
+  });
+
+  it('caps a plan at five steps', () => {
+    const steps = Array.from({ length: 6 }, () => advice.steps[0]);
+    expect(issuePaths(CareAdviceSchema.safeParse({ ...advice, steps }))).toContain('steps');
+  });
+});
+
+describe('RecognitionResultSchema advice', () => {
+  it('defaults advice to null so provider adapters parse unchanged', () => {
+    const result = RecognitionResultSchema.safeParse(recognized);
+    expect(result.success).toBe(true);
+    expect(result.data.advice).toBeNull();
+  });
+
+  it('accepts an attached care plan', () => {
+    const advice = {
+      summary: 'Looks healthy.',
+      steps: [{ action: 'Pinch flower buds', when: 'Weekly', why: 'Keeps the leaves coming' }],
+      watchFor: [],
+    };
+    const result = RecognitionResultSchema.safeParse({ ...recognized, advice });
+    expect(result.success).toBe(true);
+    expect(result.data.advice.steps).toHaveLength(1);
+  });
+
+  it('rejects malformed advice rather than silently dropping it', () => {
+    const result = RecognitionResultSchema.safeParse({ ...recognized, advice: { summary: '' } });
+    expect(issuePaths(result)).toContain('advice.summary');
+  });
+});
+
+describe('CreateDiagnosisSchema climateZone', () => {
+  const image = 'aGVsbG8=';
+
+  it('accepts a diagnosis without a climate zone', () => {
+    const result = CreateDiagnosisSchema.safeParse({ imageBase64: image });
+    expect(result.success).toBe(true);
+    expect(result.data.climateZone).toBeUndefined();
+  });
+
+  it('accepts a supported zone and rejects an unknown one', () => {
+    expect(CreateDiagnosisSchema.safeParse({ imageBase64: image, climateZone: 'BEKAA' }).success).toBe(
+      true,
+    );
+    const bad = CreateDiagnosisSchema.safeParse({ imageBase64: image, climateZone: 'DESERT' });
+    expect(issuePaths(bad)).toContain('climateZone');
+  });
+});
+
+describe('DraftPostSchema', () => {
+  const plant = { nickname: 'Minty', speciesName: 'Mentha spicata', ageDays: 92 };
+
+  it('accepts a diagnosis-only draft', () => {
+    const result = DraftPostSchema.safeParse({ diagnosis: recognized });
+    expect(result.success).toBe(true);
+    expect(result.data.plant).toBeNull();
+  });
+
+  it('accepts a plant-only draft', () => {
+    const result = DraftPostSchema.safeParse({ plant });
+    expect(result.success).toBe(true);
+    expect(result.data.diagnosis).toBeNull();
+  });
+
+  it('accepts both halves together', () => {
+    expect(DraftPostSchema.safeParse({ diagnosis: recognized, plant }).success).toBe(true);
+  });
+
+  it('rejects a draft with nothing to write about', () => {
+    expect(issuePaths(DraftPostSchema.safeParse({}))).toContain('plant');
+    expect(issuePaths(DraftPostSchema.safeParse({ diagnosis: null, plant: null }))).toContain('plant');
+  });
+
+  it('rejects a plant with no nickname', () => {
+    const result = DraftPostSchema.safeParse({ plant: { speciesName: 'Mentha spicata' } });
+    expect(issuePaths(result)).toContain('plant.nickname');
+  });
+
+  it('rejects a non-ISO lastWateredAt', () => {
+    const result = DraftPostSchema.safeParse({ plant: { ...plant, lastWateredAt: 'yesterday' } });
+    expect(issuePaths(result)).toContain('plant.lastWateredAt');
+  });
+
+  it('accepts a null lastWateredAt for a never-watered plant', () => {
+    expect(DraftPostSchema.safeParse({ plant: { ...plant, lastWateredAt: null } }).success).toBe(true);
   });
 });

@@ -16,4 +16,9 @@ export {
   HealthAssessmentSchema,
   RecognitionResultSchema,
   CreateDiagnosisSchema,
+  CareStepSchema,
+  CareAdviceSchema,
+  DraftPlantContextSchema,
+  DraftPostSchema,
+  PostDraftSchema,
 } from './schemas.js';
