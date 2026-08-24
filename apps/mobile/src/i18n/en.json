@@ -109,7 +109,11 @@
     "empty": "No entries yet — log your plant's first moment."
   },
   "diagnosis": {
-    "title": "Diagnosis"
+    "title": "Diagnosis",
+    "pending": "Still reading this one…",
+    "notFound": "We could not find that diagnosis.",
+    "carePlan": "Care plan",
+    "watchFor": "Watch for"
   },
   "diagnose": {
     "identify": "Identify",
