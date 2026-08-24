@@ -212,6 +212,9 @@ export default function CameraModal() {
     const query = [
       topCandidate?.speciesId ? `speciesId=${topCandidate.speciesId}` : null,
       imageUri ? `photoUri=${encodeURIComponent(imageUri)}` : null,
+      // Carries the scan itself — health findings and care plan included — so
+      // the new plant keeps them instead of starting with an empty timeline.
+      diagnosis?.id ? `diagnosisId=${diagnosis.id}` : null,
     ]
       .filter(Boolean)
       .join('&');
@@ -387,7 +390,9 @@ export default function CameraModal() {
                 disabled={!candidate.speciesId}
                 onPress={() => {
                   router.push(
-                    `/add-plant?speciesId=${candidate.speciesId}&photoUri=${encodeURIComponent(imageUri ?? '')}`,
+                    `/add-plant?speciesId=${candidate.speciesId}` +
+                      `&photoUri=${encodeURIComponent(imageUri ?? '')}` +
+                      (diagnosis?.id ? `&diagnosisId=${diagnosis.id}` : ''),
                   );
                 }}
               >

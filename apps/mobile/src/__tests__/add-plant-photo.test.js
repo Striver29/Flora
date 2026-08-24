@@ -26,7 +26,7 @@ jest.mock('../api/index.js', () => ({
     plants: { list: jest.fn(), create: jest.fn() },
     species: { list: jest.fn(), search: jest.fn(), get: jest.fn() },
     schedules: { create: jest.fn() },
-    diagnoses: { create: jest.fn(), get: jest.fn() },
+    diagnoses: { create: jest.fn(), get: jest.fn(), attach: jest.fn() },
   },
 }));
 
@@ -41,6 +41,7 @@ beforeEach(() => {
   client.species.list.mockResolvedValue({ ok: true, data: [tomato] });
   client.species.get.mockResolvedValue({ ok: true, data: tomato });
   client.schedules.create.mockResolvedValue({ ok: true, data: { id: 'sch9' } });
+  client.diagnoses.attach.mockResolvedValue({ ok: true, data: { id: 'dg1', plantId: 'p9' } });
   ImagePicker.launchImageLibraryAsync.mockResolvedValue({
     canceled: false,
     assets: [{ uri: 'file://plant.jpg' }],
@@ -112,4 +113,28 @@ it('runs the photo flow in order and saves with an automatic watering schedule',
   await waitFor(() =>
     expect(client.schedules.create).toHaveBeenCalledWith('p9', { type: 'WATER' }),
   );
+  // The scan that identified this plant follows it onto the timeline, carrying
+  // the health findings and the care plan with it.
+  await waitFor(() => expect(client.diagnoses.attach).toHaveBeenCalledWith('dg1', 'p9'));
+});
+
+it('still saves the plant when attaching the scan fails', async () => {
+  client.diagnoses.attach.mockResolvedValue({
+    ok: false,
+    error: { code: 'NOT_FOUND', message: 'diagnosis dg1 not found' },
+  });
+  const user = userEvent.setup();
+  await renderRouter('./app', { initialUrl: '/add-plant' });
+  await user.press(await screen.findByTestId('tab-photo'));
+  await user.press(await screen.findByTestId('photo-library'));
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(6300);
+  });
+
+  await user.press(await screen.findByTestId('suggestion-sp2'));
+  await user.press(await screen.findByTestId('confirm-save'));
+
+  // Losing the scan's history must not cost the user the plant itself.
+  await waitFor(() => expect(client.plants.create).toHaveBeenCalled());
+  expect(screen.queryByTestId('confirm-error')).toBeNull();
 });
