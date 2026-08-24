@@ -208,6 +208,30 @@ export default function CameraModal() {
     if (res.ok) router.push(`/post/${res.data.id}`);
   };
 
+  /**
+   * Finish a scan.
+   *
+   * A scan is about a plant, so ending one lands on that plant's page rather
+   * than dropping the user back where they started. `savedTo` covers the scan
+   * they just attached; `plantId` covers a scan launched from a plant in the
+   * first place. With neither there is no plant to show — the scan was a
+   * one-off lookup — so fall back to going back.
+   */
+  const finish = () => {
+    const target = savedTo ?? plantId;
+    if (target) {
+      // A scan launched from a plant is attached at creation and never passes
+      // through `attach`, so nothing has invalidated its timeline yet. Without
+      // this the plant page can open on a cached list missing the scan that
+      // was just run.
+      queryClient.invalidateQueries({ queryKey: ['timeline', target] });
+      router.replace(`/plant/${target}`);
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
+
   const goToNewPlant = () => {
     setSaveOpen(false);
     const query = [
@@ -478,7 +502,7 @@ export default function CameraModal() {
             testID="diagnose-done"
             variant="ghost"
             label={t('diagnose.done')}
-            onPress={() => router.back()}
+            onPress={finish}
           />
         </View>
       </ScrollView>
