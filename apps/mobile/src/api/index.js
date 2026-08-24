@@ -43,8 +43,10 @@ import { mockClient } from './mockClient.js';
  *   diagnoses.get(id)                              → Diagnosis       flips to COMPLETE after ~3s (mock);
  *                                                     lowConfidence: true when confidence < 0.55
  *   diagnoses.attach(id, plantId)                  → { id, plantId }  links a diagnosis to a plant
- *   diagnoses.escalate(id)                         → Post            HELP post embedding
- *                                                     { imageUri, topIssue, confidence }
+ *   diagnoses.escalate(id, { body? })              → Post            HELP post embedding
+ *                                                     { imageUri, topIssue, confidence };
+ *                                                     `body` is the reviewed draft, falling
+ *                                                     back to plain wording when absent
  *
  *   feed.list({ cursor?, limit? })                 → { items, nextCursor }  author + likedByMe enriched;
  *                                                     others' PENDING_REVIEW posts hidden

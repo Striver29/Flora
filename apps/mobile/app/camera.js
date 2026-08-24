@@ -21,6 +21,7 @@ import { zoneAdjustedInterval } from '../src/utils/watering.js';
 import { Screen } from '../src/components/Screen.js';
 import { Card } from '../src/components/Card.js';
 import { Button } from '../src/components/Button.js';
+import { Field } from '../src/components/Field.js';
 import { useAuthStore } from '../src/store/authStore.js';
 import { colors, fonts, radii, spacing, typeScale } from '../src/theme.js';
 
@@ -49,6 +50,10 @@ export default function CameraModal() {
   const [progressIndex, setProgressIndex] = useState(0);
   const [saveOpen, setSaveOpen] = useState(false);
   const [savedTo, setSavedTo] = useState(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const [askBody, setAskBody] = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [fixtureIndex, setFixtureIndex] = useState(0);
   const cameraRef = useRef(null);
   const pollTimer = useRef(null);
@@ -178,8 +183,27 @@ export default function CameraModal() {
     }
   };
 
+  /**
+   * Draft the help post, then show it for review.
+   *
+   * Nothing is posted here. The draft is written from the diagnosis the user is
+   * already looking at, and it goes out only once they have read it and pressed
+   * post — their name is on it. A drafting failure is not a dead end: the sheet
+   * still opens, with the plain fallback wording to edit.
+   */
   const askCommunity = async () => {
-    const res = await client.diagnoses.escalate(diagnosis.id);
+    setAskOpen(true);
+    setDrafting(true);
+    const res = await client.posts.draft({ diagnosis: diagnosis?.result ?? null });
+    setDrafting(false);
+    if (res.ok) setAskBody(res.data.body);
+  };
+
+  const postToCommunity = async () => {
+    setAsking(true);
+    const res = await client.diagnoses.escalate(diagnosis.id, { body: askBody.trim() });
+    setAsking(false);
+    setAskOpen(false);
     if (res.ok) router.push(`/post/${res.data.id}`);
   };
 
@@ -482,6 +506,46 @@ export default function CameraModal() {
               variant="ghost"
               label={t('diagnose.newPlant')}
               onPress={goToNewPlant}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={askOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAskOpen(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <Pressable style={styles.backdropTouch} onPress={() => setAskOpen(false)} />
+          <View style={styles.sheet}>
+            <Text style={[styles.sheetTitle, { fontFamily: displayFont }]}>
+              {t('diagnose.askCommunity')}
+            </Text>
+            {drafting ? (
+              <ActivityIndicator testID="ask-drafting" color={colors.primary} />
+            ) : (
+              <Field
+                testID="ask-body"
+                label={t('diagnose.askReview')}
+                placeholder={t('compose.placeholder')}
+                value={askBody}
+                onChangeText={setAskBody}
+                multiline
+              />
+            )}
+            <Button
+              testID="ask-post"
+              label={t('compose.submit')}
+              onPress={postToCommunity}
+              disabled={drafting || asking || !askBody.trim()}
+            />
+            <Button
+              testID="ask-cancel"
+              variant="ghost"
+              label={t('camera.close')}
+              onPress={() => setAskOpen(false)}
             />
           </View>
         </View>

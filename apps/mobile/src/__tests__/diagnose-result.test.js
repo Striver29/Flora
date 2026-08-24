@@ -67,6 +67,7 @@ jest.mock('../api/index.js', () => ({
     },
     species: { list: jest.fn(), search: jest.fn(), get: jest.fn() },
     schedules: { create: jest.fn() },
+    posts: { draft: jest.fn() },
     diagnoses: {
       create: jest.fn(),
       get: jest.fn(),
@@ -93,6 +94,10 @@ beforeEach(() => {
   client.diagnoses.escalate.mockResolvedValue({
     ok: true,
     data: { id: 'post9', type: 'HELP' },
+  });
+  client.posts.draft.mockResolvedValue({
+    ok: true,
+    data: { body: 'My tomato has brown spots spreading up the lower leaves. Any advice?' },
   });
 });
 
@@ -122,7 +127,40 @@ it('renders the result card and escalates to the community post', async () => {
   expect(screen.getByText('Remove the affected lower leaves')).toBeTruthy();
   expect(await screen.findByText(/Water every 3 days in your zone/)).toBeTruthy();
 
+  // Asking the community drafts the post first and shows it for review —
+  // nothing is published until the user presses post.
   await fireEvent.press(screen.getByTestId('diagnose-ask'));
-  await waitFor(() => expect(client.diagnoses.escalate).toHaveBeenCalledWith('dg1'));
+  await waitFor(() =>
+    expect(screen.getByTestId('ask-body').props.value).toMatch(/brown spots/),
+  );
+  expect(client.diagnoses.escalate).not.toHaveBeenCalled();
+
+  await fireEvent.press(screen.getByTestId('ask-post'));
+  await waitFor(() =>
+    expect(client.diagnoses.escalate).toHaveBeenCalledWith('dg1', {
+      body: 'My tomato has brown spots spreading up the lower leaves. Any advice?',
+    }),
+  );
   await waitFor(() => expect(app.getPathname()).toBe('/post/post9'));
+});
+
+it('still lets you ask the community when drafting fails', async () => {
+  client.posts.draft.mockResolvedValue({
+    ok: false,
+    error: { code: 'PROVIDER_ERROR', message: 'Could not draft a post right now' },
+  });
+  const app = renderRouter('./app', { initialUrl: '/camera?plantId=p1' });
+  await app;
+  await fireEvent.press(await screen.findByTestId('diagnose-gallery'));
+  // The result phase is gated on the poll cycle, same as the test above.
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(2100);
+  });
+
+  await fireEvent.press(await screen.findByTestId('diagnose-ask'));
+  // The sheet opens with an empty field to write in — a drafting failure must
+  // not block the escalation path.
+  await waitFor(() => expect(screen.getByTestId('ask-body')).toBeTruthy());
+  expect(screen.getByTestId('ask-body').props.value).toBe('');
+  await waitFor(() => expect(app.getPathname()).not.toBe('/post/post9'));
 });

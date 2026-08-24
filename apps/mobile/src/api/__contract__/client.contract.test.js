@@ -175,14 +175,22 @@ export function runClientContract(
       expect(tooEarly.error.code).toBe('VALIDATION');
       await wait(3100);
       await settle(client.diagnoses.get(created.data.id));
-      const post = await settle(client.diagnoses.escalate(created.data.id));
+      const post = await settle(
+        client.diagnoses.escalate(created.data.id, { body: 'Reviewed draft about my tomato.' }),
+      );
       expect(post.ok).toBe(true);
       expect(post.data.type).toBe('HELP');
+      // The reviewed text is what gets posted, not the canned fallback.
+      expect(post.data.body).toBe('Reviewed draft about my tomato.');
       expect(post.data.attachment).toMatchObject({
         imageUri: 'assets/demo/plant-2.jpg',
         topIssue: 'Early blight',
         confidence: 0.84,
       });
+      // Without a reviewed body it still works, using the plain fallback.
+      const plain = await settle(client.diagnoses.escalate(created.data.id));
+      expect(plain.data.body).toMatch(/Need help with my plant/);
+
       const helpFeed = await settle(client.posts.list({ type: 'HELP' }));
       expect(helpFeed.data.some((entry) => entry.id === post.data.id)).toBe(true);
     });

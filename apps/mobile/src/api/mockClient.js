@@ -606,8 +606,17 @@ export function createMockClient({ storage } = {}) {
           return ok({ id: diagnosis.id, plantId: plant.id });
         });
       },
-      /** Turn a completed diagnosis into a community HELP post. */
-      escalate(id) {
+      /**
+       * Turn a completed diagnosis into a community HELP post.
+       *
+       * `body` is what the person actually wants to say — normally a drafted
+       * post they have read and edited. Without it, fall back to a plain
+       * sentence built from the top issue, so escalating still works when
+       * drafting is unavailable.
+       * @param {string} id
+       * @param {{body?: string}} [input]
+       */
+      escalate(id, input = {}) {
         return call(() => {
           const user = currentUser();
           if (!user) return notLoggedIn();
@@ -624,9 +633,11 @@ export function createMockClient({ storage } = {}) {
             id: makeId('post'),
             authorId: user.id,
             type: 'HELP',
-            body: topIssue
-              ? `Need help with my plant — the diagnosis suggests "${topIssue}". Any advice?`
-              : 'Need help figuring out what is wrong with my plant. Any advice?',
+            body:
+              input.body?.trim() ||
+              (topIssue
+                ? `Need help with my plant — the diagnosis suggests "${topIssue}". Any advice?`
+                : 'Need help figuring out what is wrong with my plant. Any advice?'),
             images: [diagnosis.imageUri],
             attachment: { imageUri: diagnosis.imageUri, topIssue, confidence },
             createdAt: new Date().toISOString(),
