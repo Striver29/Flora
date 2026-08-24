@@ -243,6 +243,29 @@ export function runClientContract(
       expect(whitespace.error.code).toBe('VALIDATION');
     });
 
+    it('drafts a post body without creating anything', async () => {
+      const client = makeClient();
+      const before = await settle(client.posts.list());
+
+      const draft = await settle(
+        client.posts.draft({ plant: { nickname: 'Minty', ageDays: 92 } }),
+      );
+      expect(draft.ok).toBe(true);
+      expect(typeof draft.data.body).toBe('string');
+      expect(draft.data.body.length).toBeGreaterThan(0);
+
+      // Drafting must never publish — the text goes to the composer, and the
+      // person decides whether it becomes a post.
+      const after = await settle(client.posts.list());
+      expect(after.data).toHaveLength(before.data.length);
+    });
+
+    it('rejects a draft with nothing to write about', async () => {
+      const client = makeClient();
+      const empty = await settle(client.posts.draft({}));
+      expect(empty.error.code).toBe('VALIDATION');
+    });
+
     it('likes and comments on posts', async () => {
       const client = makeClient();
       // post4 has no seed likes, so the session user's like must increment the count

@@ -49,7 +49,11 @@
     "submit": "Post",
     "pendingBanner": "Being reviewed — only you can see this",
     "pendingBody": "Our moderators take a quick look at flagged photos. Your post will appear once approved.",
-    "devFlagged": "DEV · Attach flagged image"
+    "devFlagged": "DEV · Attach flagged image",
+    "draftForMe": "Write it for me",
+    "drafting": "Writing…",
+    "draftPickPlant": "Which plant is this about?",
+    "draftNoPlants": "Add a plant first — the draft is written from what you have growing."
   },
   "userScreen": {
     "follow": "Follow",

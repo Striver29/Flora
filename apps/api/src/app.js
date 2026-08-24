@@ -4,7 +4,10 @@ import { config as defaultConfig } from './config.js';
 import { createRecognitionProvider } from './recognition/index.js';
 import { createLlmProvider } from './llm/index.js';
 import { requestCareAdvice } from './llm/careAdvice.js';
+import { requestPostDraft } from './llm/postDraft.js';
 import { createDiagnosisRoutes } from './modules/diagnoses/routes.js';
+import { createDraftRoutes } from './modules/drafts/routes.js';
+import { createDraftService } from './modules/drafts/service.js';
 import { createDiagnosisService } from './modules/diagnoses/service.js';
 import { createDiagnosisStore } from './modules/diagnoses/store.js';
 
@@ -16,9 +19,12 @@ import { createDiagnosisStore } from './modules/diagnoses/store.js';
  *
  * @param {ReturnType<import('./config.js').loadConfig>} config
  */
-function defaultAdvise(config) {
+function defaultLlm(config) {
   const generate = createLlmProvider(config);
-  return (result, context) => requestCareAdvice(generate, result, context);
+  return {
+    advise: (result, context) => requestCareAdvice(generate, result, context),
+    draft: (input) => requestPostDraft(generate, input),
+  };
 }
 
 /**
@@ -31,6 +37,7 @@ function defaultAdvise(config) {
  *   config?: ReturnType<import('./config.js').loadConfig>,
  *   recognize?: (input: object) => Promise<object>,
  *   advise?: (result: object, context: object) => Promise<object>,
+ *   draft?: (input: object) => Promise<{body: string}>,
  *   store?: ReturnType<typeof createDiagnosisStore>,
  *   logger?: Console,
  * }} [overrides]
@@ -38,11 +45,19 @@ function defaultAdvise(config) {
 export function createApp({
   config = defaultConfig,
   recognize = createRecognitionProvider(config),
-  advise = defaultAdvise(config),
+  advise,
+  draft,
   store = createDiagnosisStore(),
   logger = console,
 } = {}) {
   const app = express();
+
+  // One provider shared by both features, so the "using Bedrock / using fixture
+  // stubs" line is logged once at startup rather than twice. Skipped entirely
+  // when a test injects both, so no client is ever constructed there.
+  const fallback = advise && draft ? null : defaultLlm(config);
+  const resolvedAdvise = advise ?? fallback.advise;
+  const resolvedDraft = draft ?? fallback.draft;
 
   // Base64 images inflate ~33%, and the ceiling is a request-size guard, not the
   // real image check — service.create rejects oversized images with a VALIDATION
@@ -52,14 +67,17 @@ export function createApp({
   const service = createDiagnosisService({
     store,
     recognize,
-    advise,
+    advise: resolvedAdvise,
     maxImageBytes: config.maxImageBytes,
     timeoutMs: config.recognitionTimeoutMs,
     logger,
   });
 
+  const drafts = createDraftService({ draft: resolvedDraft, logger });
+
   app.get('/health', (_req, res) => res.json(ok({ status: 'up' })));
   app.use('/diagnoses', createDiagnosisRoutes({ service }));
+  app.use('/drafts', createDraftRoutes({ service: drafts }));
 
   app.use((_req, res) => {
     res.status(404).json(fail(ErrorCode.NOT_FOUND, 'route not found'));

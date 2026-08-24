@@ -3,6 +3,7 @@ import {
   CreatePlantSchema,
   CreatePostSchema,
   CreateScheduleSchema,
+  DraftPostSchema,
   ErrorCode,
   RegisterDeviceSchema,
   SignupSchema,
@@ -738,6 +739,40 @@ export function createMockClient({ storage } = {}) {
           return ok({
             items: all.slice(start, start + limit).map(commentView),
             nextCursor: nextIndex < all.length ? String(nextIndex) : null,
+          });
+        });
+      },
+      /**
+       * Draft a post body offline.
+       *
+       * The real draft is written by a model on the API; the mock composes a
+       * plausible one from the same inputs so the composer's "write it for me"
+       * button works in airplane mode, which the demo depends on.
+       * @param {{diagnosis?: object|null, plant?: object|null}} input
+       */
+      draft(input = {}) {
+        return call(() => {
+          const { data, error } = parseWith(DraftPostSchema, input);
+          if (error) return error;
+
+          const topIssue = data.diagnosis?.health?.issues?.[0] ?? null;
+          const species = data.diagnosis?.species?.[0];
+          const name = data.plant?.nickname ?? species?.commonNames?.[0] ?? 'my plant';
+
+          if (topIssue) {
+            return ok({
+              body:
+                `Something is wrong with ${name} — the app thinks it might be ` +
+                `${topIssue.name.toLowerCase()}. I have pulled off the worst leaves so far. ` +
+                `Has anyone dealt with this before?`,
+            });
+          }
+
+          const age = data.plant?.ageDays;
+          const howLong =
+            typeof age === 'number' && age >= 30 ? ` after ${Math.round(age / 30)} months` : '';
+          return ok({
+            body: `Look at ${name}${howLong} — finally filling out. Any tips for keeping it going?`,
           });
         });
       },

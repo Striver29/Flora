@@ -51,6 +51,9 @@ import { mockClient } from './mockClient.js';
  *   users.get(userId)                              → { user, following }
  *   users.posts(userId)                            → Post[]          that user's visible posts
  *
+ *   posts.draft({ diagnosis?, plant? })             → { body }  LLM-written post body;
+ *                                                     needs a diagnosis, a plant, or both.
+ *                                                     Creates nothing — prefills the composer.
  *   posts.list({ type? })                          → Post[]
  *   posts.get(id)                                  → Post + { comments }
  *   posts.create(input)                            → Post            CreatePostSchema; status
@@ -82,8 +85,10 @@ const isLiveMode = process.env.EXPO_PUBLIC_API_MODE === 'live';
  * feed. It also keeps 'mock' fully offline, which the mentor demo depends on
  * (docs/demo-script.md flips airplane mode on stage).
  *
- * Scoped deliberately: only create/get go to the server. attach/escalate stay
- * mock-backed because they touch plants and posts, which have no API yet.
+ * Scoped deliberately: only create/get and posts.draft go to the server.
+ * attach/escalate stay mock-backed because they touch plants and posts, which
+ * have no API yet. posts.draft can cross over because it reads nothing and
+ * creates nothing — every input travels in the request body.
  */
 const useLiveScan = !isLiveMode && process.env.EXPO_PUBLIC_LIVE_SCAN === '1';
 
@@ -96,6 +101,7 @@ function withLiveScan(base) {
   return {
     ...base,
     sendsImageBytes: true,
+    posts: { ...base.posts, draft: liveClient.posts.draft },
     diagnoses: {
       ...base.diagnoses,
       create: liveClient.diagnoses.create,
