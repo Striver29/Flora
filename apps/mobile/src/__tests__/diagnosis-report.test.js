@@ -1,3 +1,4 @@
+import { AccessibilityInfo } from 'react-native';
 import { renderRouter, screen } from 'expo-router/testing-library';
 import { client } from '../api/index.js';
 import { useAuthStore } from '../store/authStore.js';
@@ -119,6 +120,22 @@ it('shows the provider message on a failed diagnosis', async () => {
 
   expect(await screen.findByTestId('diagnosis-failed')).toBeTruthy();
   expect(screen.getByText('Plant.id did not respond within 45000ms')).toBeTruthy();
+});
+
+it('keeps the whole care plan reachable while it is still animating in', async () => {
+  // Tests run with reduced motion on (jest.setup.js), so this opts back into
+  // the animated path — the one everybody actually sees.
+  AccessibilityInfo.isReduceMotionEnabled = () => Promise.resolve(false);
+  mockDiagnosis({ id: 'dg5', status: 'COMPLETE', result, lowConfidence: false, error: null });
+  const app = renderRouter('./app', { initialUrl: '/diagnosis/dg5' });
+  await app;
+
+  // The stagger animates opacity only. Every step stays mounted throughout, so
+  // it is readable by a screen reader from the first frame rather than popping
+  // into the tree on a timer.
+  expect(await screen.findByTestId('advice-summary')).toBeTruthy();
+  expect(screen.getByTestId('advice-step-0')).toBeTruthy();
+  expect(screen.getByText(result.advice.watchFor[0])).toBeTruthy();
 });
 
 it('reports a missing diagnosis instead of rendering an empty report', async () => {

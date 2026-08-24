@@ -2,6 +2,14 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// Report reduced motion by default, which makes entrance animations resolve to
+// their final state instantly. Waiting out real animation timers turned one
+// suite from 5s into 18s and buys nothing — the animations are decoration.
+// A test that wants the animated path overrides this itself.
+// Assigned rather than jest.spyOn'd: restoreMocks would undo a spy after the
+// first test in every file.
+require('react-native').AccessibilityInfo.isReduceMotionEnabled = () => Promise.resolve(true);
+
 // Fonts resolve instantly in tests so the root layout renders synchronously.
 jest.mock('expo-font', () => {
   const actual = jest.requireActual('expo-font');

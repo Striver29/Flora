@@ -12,6 +12,7 @@ import { Screen } from '../src/components/Screen.js';
 import { Card } from '../src/components/Card.js';
 import { Button } from '../src/components/Button.js';
 import { Field } from '../src/components/Field.js';
+import { Reveal } from '../src/components/Reveal.js';
 import { colors, fonts, radii, spacing, typeScale } from '../src/theme.js';
 
 const MAX_IMAGES = 3;
@@ -31,6 +32,10 @@ export default function ComposeScreen() {
   const [error, setError] = useState(null);
   const [draftOpen, setDraftOpen] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  // Bumped only when a draft lands, and used as the editor's key so it fades in
+  // with the new text. Keying on the body itself would remount the input on
+  // every keystroke and steal focus mid-sentence.
+  const [draftVersion, setDraftVersion] = useState(0);
 
   // Only fetched once the picker opens — most posts are written by hand.
   const plantsQuery = useQuery({
@@ -70,6 +75,7 @@ export default function ComposeScreen() {
       return;
     }
     setBody(res.data.body);
+    setDraftVersion((version) => version + 1);
   };
 
   const addImage = async () => {
@@ -131,14 +137,16 @@ export default function ComposeScreen() {
     <Screen edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.title, { fontFamily: displayFont }]}>{t('compose.title')}</Text>
-        <Field
-          testID="compose-body"
-          label={t('compose.title')}
-          placeholder={t('compose.placeholder')}
-          value={body}
-          onChangeText={setBody}
-          multiline
-        />
+        <Reveal key={draftVersion}>
+          <Field
+            testID="compose-body"
+            label={t('compose.title')}
+            placeholder={t('compose.placeholder')}
+            value={body}
+            onChangeText={setBody}
+            multiline
+          />
+        </Reveal>
         <Button
           testID="compose-draft"
           variant="ghost"

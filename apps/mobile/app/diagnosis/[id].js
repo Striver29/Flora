@@ -8,10 +8,21 @@ import { unwrap } from '../../src/utils/api.js';
 import { Screen } from '../../src/components/Screen.js';
 import { Card } from '../../src/components/Card.js';
 import { Button } from '../../src/components/Button.js';
+import { Reveal } from '../../src/components/Reveal.js';
 import { colors, fonts, radii, spacing, typeScale } from '../../src/theme.js';
 
 /** Keep polling while the job is still running, the way the scan screen does. */
 const POLL_MS = 1500;
+
+/**
+ * Stagger for the care plan, in ms.
+ *
+ * The plan is the part of this screen someone actually reads, so it arrives in
+ * reading order — summary, then each step, then what to watch for — instead of
+ * landing all at once with the diagnosis header.
+ */
+const REVEAL_START = 120;
+const REVEAL_STEP = 70;
 
 /** Pick the localized common name, falling back to the scientific one. */
 function localName(commonNames, scientificName) {
@@ -156,28 +167,39 @@ export default function DiagnosisScreen() {
 
             {advice ? (
               <>
-                <Text testID="advice-summary" style={styles.summary}>
-                  {advice.summary}
-                </Text>
+                <Reveal delay={REVEAL_START}>
+                  <Text testID="advice-summary" style={styles.summary}>
+                    {advice.summary}
+                  </Text>
+                </Reveal>
 
-                <Text style={styles.sectionLabel}>{t('diagnosis.carePlan')}</Text>
+                <Reveal delay={REVEAL_START + REVEAL_STEP}>
+                  <Text style={styles.sectionLabel}>{t('diagnosis.carePlan')}</Text>
+                </Reveal>
                 <Card style={styles.sectionCard}>
                   {advice.steps.map((step, index) => (
-                    <View key={step.action} testID={`advice-step-${index}`} style={styles.stepRow}>
-                      <View style={styles.stepBadge}>
-                        <Text style={styles.stepNumber}>{index + 1}</Text>
+                    <Reveal
+                      key={step.action}
+                      delay={REVEAL_START + REVEAL_STEP * (index + 2)}
+                    >
+                      <View testID={`advice-step-${index}`} style={styles.stepRow}>
+                        <View style={styles.stepBadge}>
+                          <Text style={styles.stepNumber}>{index + 1}</Text>
+                        </View>
+                        <View style={styles.stepBody}>
+                          <Text style={styles.stepText}>{step.action}</Text>
+                          <Text style={styles.stepWhen}>{step.when}</Text>
+                          <Text style={styles.stepWhy}>{step.why}</Text>
+                        </View>
                       </View>
-                      <View style={styles.stepBody}>
-                        <Text style={styles.stepText}>{step.action}</Text>
-                        <Text style={styles.stepWhen}>{step.when}</Text>
-                        <Text style={styles.stepWhy}>{step.why}</Text>
-                      </View>
-                    </View>
+                    </Reveal>
                   ))}
                 </Card>
 
                 {advice.watchFor.length > 0 ? (
-                  <>
+                  <Reveal
+                    delay={REVEAL_START + REVEAL_STEP * (advice.steps.length + 2)}
+                  >
                     <Text style={styles.sectionLabel}>{t('diagnosis.watchFor')}</Text>
                     <Card style={styles.sectionCard}>
                       {advice.watchFor.map((signal) => (
@@ -187,7 +209,7 @@ export default function DiagnosisScreen() {
                         </View>
                       ))}
                     </Card>
-                  </>
+                  </Reveal>
                 ) : null}
               </>
             ) : topIssue?.treatmentHints?.length ? (

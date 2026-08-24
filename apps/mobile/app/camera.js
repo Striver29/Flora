@@ -22,6 +22,7 @@ import { Screen } from '../src/components/Screen.js';
 import { Card } from '../src/components/Card.js';
 import { Button } from '../src/components/Button.js';
 import { Field } from '../src/components/Field.js';
+import { Reveal } from '../src/components/Reveal.js';
 import { useAuthStore } from '../src/store/authStore.js';
 import { colors, fonts, radii, spacing, typeScale } from '../src/theme.js';
 
@@ -531,14 +532,18 @@ export default function CameraModal() {
             {drafting ? (
               <ActivityIndicator testID="ask-drafting" color={colors.primary} />
             ) : (
-              <Field
-                testID="ask-body"
-                label={t('diagnose.askReview')}
-                placeholder={t('compose.placeholder')}
-                value={askBody}
-                onChangeText={setAskBody}
-                multiline
-              />
+              // Fades in as it replaces the spinner, so the drafted text settles
+              // before the user reaches for it rather than snapping into place.
+              <Reveal>
+                <Field
+                  testID="ask-body"
+                  label={t('diagnose.askReview')}
+                  placeholder={t('compose.placeholder')}
+                  value={askBody}
+                  onChangeText={setAskBody}
+                  multiline
+                />
+              </Reveal>
             )}
             <Button
               testID="ask-post"
