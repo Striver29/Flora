@@ -7,14 +7,17 @@
   "scripts": {
     "dev": "node --watch --env-file-if-exists=../../.env src/server.js",
     "start": "node src/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke:bedrock": "node --env-file-if-exists=../../.env scripts/bedrock-smoke.js"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1116.0",
     "@flora/shared": "workspace:*",
     "express": "^5.1.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "aws-sdk-client-mock": "^4.1.0",
     "supertest": "^7.1.4",
     "vitest": "^4.1.10"
   }

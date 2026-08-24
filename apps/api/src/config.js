@@ -36,6 +36,16 @@ export function loadConfig(env = process.env) {
     maxImageBytes: intFromEnv(env.FLORA_MAX_IMAGE_BYTES, 6 * 1024 * 1024),
     /** Which canned Plant.id response the stub replays. */
     stubFixture: (env.FLORA_STUB_FIXTURE ?? 'healthy-basil').trim(),
+    /**
+     * Opt in to real Bedrock calls. An explicit flag rather than a key check:
+     * Bedrock reads the ambient AWS credential chain, which is often populated
+     * for reasons that have nothing to do with wanting to spend on inference.
+     */
+    llmEnabled: (env.FLORA_LLM_ENABLED ?? '').trim() === '1',
+    bedrockRegion: (env.FLORA_BEDROCK_REGION ?? 'us-east-1').trim(),
+    bedrockModelId: (env.FLORA_BEDROCK_MODEL_ID ?? 'openai.gpt-oss-120b-1:0').trim(),
+    /** Ceiling on one model call. Shorter than recognition — these are small tasks. */
+    llmTimeoutMs: intFromEnv(env.FLORA_LLM_TIMEOUT_MS, 30_000),
   };
 }
 
