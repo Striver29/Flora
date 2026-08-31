@@ -50,10 +50,35 @@
  */
 
 /**
+ * One actionable step in a care plan.
+ * @typedef {Object} CareStep
+ * @property {string} action what to do
+ * @property {string} when today, this week, every watering
+ * @property {string} why the reasoning, so the advice is learnable rather than obeyed
+ */
+
+/**
+ * Care advice derived from a completed diagnosis, written per species, issue
+ * and climate zone rather than looked up from a table.
+ * @typedef {Object} CareAdvice
+ * @property {string} summary plain-language read of what is going on
+ * @property {CareStep[]} steps 1..5, ordered most urgent first
+ * @property {string[]} watchFor up to 3 signals that change the diagnosis
+ */
+
+/**
  * Result of running a photo through plant recognition.
  * @typedef {Object} RecognitionResult
  * @property {SpeciesCandidate[]} species best matches, most likely first
  * @property {HealthAssessment} health
+ * @property {CareAdvice|null} advice null when the model call was skipped or failed
+ */
+
+/**
+ * A drafted community post body. Never posted automatically — it fills the
+ * composer and the user edits and submits it.
+ * @typedef {Object} PostDraft
+ * @property {string} body
  */
 
 /**

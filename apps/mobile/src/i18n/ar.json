@@ -53,7 +53,11 @@
     "submit": "انشر",
     "pendingBanner": "قيد المراجعة — أنت بس بتشوفه",
     "pendingBody": "منلقي نظرة سريعة عالصور المعلّمة. منشورك بيظهر بعد الموافقة.",
-    "devFlagged": "DEV · ضيف صورة معلّمة"
+    "devFlagged": "DEV · ضيف صورة معلّمة",
+    "draftForMe": "اكتبها إلي",
+    "drafting": "عم نكتب…",
+    "draftPickPlant": "عن أي نبتة؟",
+    "draftNoPlants": "ضيف نبتة أول — المسودة بتنكتب من النبتات يلي عندك."
   },
   "userScreen": {
     "follow": "تابع",
@@ -108,6 +112,14 @@
     "everyNDays_many": "كل {{count}} يوم",
     "everyNDays_other": "كل {{count}} يوم",
     "wateredToday": "سقيتها اليوم ✓",
+    "intervalLabel": "فترة السقاية",
+    "intervalUnit_one": "يوم بين السقايات",
+    "intervalUnit_other": "أيام بين السقايات",
+    "confirmWaterTitle": "سقيتها؟",
+    "confirmWaterBody_one": "هيدا بيعيد الدورة — السقاية الجاي بعد يوم.",
+    "confirmWaterBody_other": "هيدا بيعيد الدورة — السقاية الجاي بعد {{count}} أيام.",
+    "confirmWater": "إي، سقيتها",
+    "cancelWater": "لسا",
     "timeline": "اليوميات",
     "addLog": "+ سجّل",
     "addPhoto": "ضيف صورة",
@@ -121,7 +133,11 @@
     "empty": "ما في مدخلات بعد — سجّل أول لحظة لنبتتك."
   },
   "diagnosis": {
-    "title": "التشخيص"
+    "title": "التشخيص",
+    "pending": "ما زلنا نقرأ هذه…",
+    "notFound": "لم نجد هذا التشخيص.",
+    "carePlan": "خطة العناية",
+    "watchFor": "انتبه إلى"
   },
   "diagnose": {
     "identify": "تعرّف",
@@ -146,6 +162,7 @@
     "saved": "انحفظت ✓",
     "newPlant": "نبتة جديدة",
     "askCommunity": "اسأل المجتمع",
+    "askReview": "اقرأها قبل ما تنشرها",
     "communityHint": "المزارعون اللبنانيون عادة بيردوا خلال ساعة.",
     "done": "تم",
     "failedTitle": "شي ذبل بالطريق",

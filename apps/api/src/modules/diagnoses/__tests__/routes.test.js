@@ -1,3 +1,4 @@
+import { CareAdviceSchema } from '@flora/shared';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../../app.js';
@@ -51,8 +52,18 @@ describe('diagnoses routes', () => {
     const settled = await pollUntilSettled(app, created.body.data.id);
     expect(settled.status).toBe(200);
     expect(settled.body.data.status).toBe('COMPLETE');
-    expect(settled.body.data.result).toEqual(healthy);
+    expect(settled.body.data.result).toMatchObject(healthy);
     expect(settled.body.data.lowConfidence).toBe(false);
+  });
+
+  it('attaches care advice through the default provider', async () => {
+    const app = makeApp();
+    const created = await request(app).post('/diagnoses').send({ imageBase64: IMAGE });
+
+    // No FLORA_LLM_ENABLED here, so this runs the fixture stub — but it runs it
+    // through the same wiring the live provider uses, which is the point.
+    const settled = await pollUntilSettled(app, created.body.data.id);
+    expect(CareAdviceSchema.safeParse(settled.body.data.result.advice).success).toBe(true);
   });
 
   it('returns 400 with a VALIDATION envelope for a bad payload', async () => {

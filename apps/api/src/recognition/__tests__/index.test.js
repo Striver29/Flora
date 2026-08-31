@@ -38,7 +38,10 @@ describe('createStubProvider', () => {
 
     // Every fixture must survive normalization — that is what keeps the canned
     // payloads honest about the shape Plant.id actually returns.
-    expect(Object.keys(result)).toEqual(['species', 'health']);
+    // Recognition knows nothing about advice — it is attached later, by a model
+    // call that is allowed to fail. Providers must leave it null.
+    expect(Object.keys(result)).toEqual(['species', 'health', 'advice']);
+    expect(result.advice).toBeNull();
     expect(result.health.confidence).toBeGreaterThanOrEqual(0);
     expect(result.health.confidence).toBeLessThanOrEqual(1);
   });

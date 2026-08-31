@@ -84,6 +84,17 @@ export const liveClient = {
     posts: notImplemented('users.posts'),
   },
   posts: {
+    /**
+     * Draft a post body from a diagnosis, a plant, or both.
+     *
+     * Plant details travel inline rather than as a plantId: the plants API does
+     * not exist yet, and the client already holds everything the draft needs.
+     * Nothing is created — the text comes back for the composer to prefill.
+     * @param {{diagnosis?: object|null, plant?: object|null}} input
+     */
+    async draft(input = {}) {
+      return apiFetch('/drafts/post', { method: 'POST', body: input });
+    },
     list: notImplemented('posts.list'),
     get: notImplemented('posts.get'),
     create: notImplemented('posts.create'),

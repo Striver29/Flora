@@ -27,7 +27,9 @@ import { mockClient } from './mockClient.js';
  *   plants.get(id)                                 → Plant + { schedules, growthLogs }
  *   plants.create(input)                           → Plant           CreatePlantSchema
  *   plants.markWatered(id)                         → { plantId, wateredAt, nextDueAt }
- *                                                     nextDueAt = now + max(1, round(
+ *                                                     nextDueAt = now + the plant's WATER
+ *                                                     schedule intervalDays when it has one,
+ *                                                     otherwise max(1, round(
  *                                                     species.waterEveryDays × zoneMultiplier(user.climateZone))) days
  *   plants.logs.create(plantId, { photoKey?, note? }) → GrowthLog
  *   plants.timeline(plantId, { cursor?, limit? })  → { items, nextCursor }
@@ -43,14 +45,19 @@ import { mockClient } from './mockClient.js';
  *   diagnoses.get(id)                              → Diagnosis       flips to COMPLETE after ~3s (mock);
  *                                                     lowConfidence: true when confidence < 0.55
  *   diagnoses.attach(id, plantId)                  → { id, plantId }  links a diagnosis to a plant
- *   diagnoses.escalate(id)                         → Post            HELP post embedding
- *                                                     { imageUri, topIssue, confidence }
+ *   diagnoses.escalate(id, { body? })              → Post            HELP post embedding
+ *                                                     { imageUri, topIssue, confidence };
+ *                                                     `body` is the reviewed draft, falling
+ *                                                     back to plain wording when absent
  *
  *   feed.list({ cursor?, limit? })                 → { items, nextCursor }  author + likedByMe enriched;
  *                                                     others' PENDING_REVIEW posts hidden
  *   users.get(userId)                              → { user, following }
  *   users.posts(userId)                            → Post[]          that user's visible posts
  *
+ *   posts.draft({ diagnosis?, plant? })             → { body }  LLM-written post body;
+ *                                                     needs a diagnosis, a plant, or both.
+ *                                                     Creates nothing — prefills the composer.
  *   posts.list({ type? })                          → Post[]
  *   posts.get(id)                                  → Post + { comments }
  *   posts.create(input)                            → Post            CreatePostSchema; status
@@ -82,8 +89,10 @@ const isLiveMode = process.env.EXPO_PUBLIC_API_MODE === 'live';
  * feed. It also keeps 'mock' fully offline, which the mentor demo depends on
  * (docs/demo-script.md flips airplane mode on stage).
  *
- * Scoped deliberately: only create/get go to the server. attach/escalate stay
- * mock-backed because they touch plants and posts, which have no API yet.
+ * Scoped deliberately: only create/get and posts.draft go to the server.
+ * attach/escalate stay mock-backed because they touch plants and posts, which
+ * have no API yet. posts.draft can cross over because it reads nothing and
+ * creates nothing — every input travels in the request body.
  */
 const useLiveScan = !isLiveMode && process.env.EXPO_PUBLIC_LIVE_SCAN === '1';
 
@@ -96,6 +105,7 @@ function withLiveScan(base) {
   return {
     ...base,
     sendsImageBytes: true,
+    posts: { ...base.posts, draft: liveClient.posts.draft },
     diagnoses: {
       ...base.diagnoses,
       create: liveClient.diagnoses.create,

@@ -20,7 +20,14 @@ import { colors } from '../src/theme.js';
 // falls back to the in-memory storage registered in src/api/storage.js).
 setPersistentStorage(AsyncStorage);
 
-const queryClient = new QueryClient({
+/**
+ * One client for the whole app.
+ *
+ * Exported so tests can clear it between cases: it lives at module scope, so a
+ * cached result from one test is still fresh (staleTime) when the next renders,
+ * and the second test would silently assert against the first one's data.
+ */
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: false, staleTime: 30 * 1000, refetchOnWindowFocus: false },
   },

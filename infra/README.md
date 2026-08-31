@@ -1,4 +1,4 @@
-# Flora infra
+4# Flora infra
 
 AWS CDK app (JavaScript). Stacks are added in later phases.
 
@@ -27,6 +27,10 @@ into the app bundle at build time and is readable by anyone with the app.
 | `FLORA_RECOGNITION_TIMEOUT_MS` | apps/api | Provider call ceiling. Default `45000` — must stay under the mobile client's 90s poll budget. |
 | `FLORA_MAX_IMAGE_BYTES` | apps/api | Largest accepted image, decoded. Default `6291456`. Temporary: retire once images upload to S3 instead of crossing the API. |
 | `FLORA_STUB_FIXTURE` | apps/api | Which canned response the stub replays: `healthy-basil`, `diseased-tomato` or `blurry`. |
+| `FLORA_LLM_ENABLED` | apps/api | `1` sends care advice and post drafts to Bedrock. Anything else (default) replays `test/fixtures/llm-*.json` — no AWS account, no spend. Not a secret: Bedrock authenticates off the ambient AWS credential chain, which is why this is an explicit opt-in rather than a key check. Prove a real call with `FLORA_LLM_ENABLED=1 pnpm -F api smoke:bedrock`. |
+| `FLORA_BEDROCK_REGION` | apps/api | Region for Bedrock calls. Default `us-east-1`. Model access must be requested per-region in the Bedrock console first. gpt-oss is **in-region only** — no global or geo cross-region endpoint — so this must name a region that hosts the model. |
+| `FLORA_BEDROCK_MODEL_ID` | apps/api | Default `openai.gpt-oss-120b-1:0` (OpenAI open-weight, via the Converse API on `bedrock-runtime`). `openai.gpt-oss-20b-1:0` is the smaller/cheaper sibling. |
+| `FLORA_LLM_TIMEOUT_MS` | apps/api | Ceiling on one model call. Default `30000`. |
 
 ### Secrets
 

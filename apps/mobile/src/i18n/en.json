@@ -49,7 +49,11 @@
     "submit": "Post",
     "pendingBanner": "Being reviewed — only you can see this",
     "pendingBody": "Our moderators take a quick look at flagged photos. Your post will appear once approved.",
-    "devFlagged": "DEV · Attach flagged image"
+    "devFlagged": "DEV · Attach flagged image",
+    "draftForMe": "Write it for me",
+    "drafting": "Writing…",
+    "draftPickPlant": "Which plant is this about?",
+    "draftNoPlants": "Add a plant first — the draft is written from what you have growing."
   },
   "userScreen": {
     "follow": "Follow",
@@ -96,6 +100,14 @@
     "everyNDays_one": "Every day",
     "everyNDays_other": "Every {{count}} days",
     "wateredToday": "Watered today ✓",
+    "intervalLabel": "Watering interval",
+    "intervalUnit_one": "day between waterings",
+    "intervalUnit_other": "days between waterings",
+    "confirmWaterTitle": "Watered it?",
+    "confirmWaterBody_one": "This restarts the cycle — next watering in {{count}} day.",
+    "confirmWaterBody_other": "This restarts the cycle — next watering in {{count}} days.",
+    "confirmWater": "Yes, watered",
+    "cancelWater": "Not yet",
     "timeline": "Timeline",
     "addLog": "+ Log",
     "addPhoto": "Add a photo",
@@ -109,7 +121,11 @@
     "empty": "No entries yet — log your plant's first moment."
   },
   "diagnosis": {
-    "title": "Diagnosis"
+    "title": "Diagnosis",
+    "pending": "Still reading this one…",
+    "notFound": "We could not find that diagnosis.",
+    "carePlan": "Care plan",
+    "watchFor": "Watch for"
   },
   "diagnose": {
     "identify": "Identify",
@@ -130,6 +146,7 @@
     "saved": "Saved ✓",
     "newPlant": "New plant",
     "askCommunity": "Ask the community",
+    "askReview": "Read it over before posting",
     "communityHint": "Lebanese growers usually reply within the hour.",
     "done": "Done",
     "failedTitle": "Something wilted",

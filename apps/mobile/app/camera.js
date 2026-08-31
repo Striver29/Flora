@@ -21,6 +21,8 @@ import { zoneAdjustedInterval } from '../src/utils/watering.js';
 import { Screen } from '../src/components/Screen.js';
 import { Card } from '../src/components/Card.js';
 import { Button } from '../src/components/Button.js';
+import { Field } from '../src/components/Field.js';
+import { Reveal } from '../src/components/Reveal.js';
 import { useAuthStore } from '../src/store/authStore.js';
 import { colors, fonts, radii, spacing, typeScale } from '../src/theme.js';
 
@@ -49,6 +51,10 @@ export default function CameraModal() {
   const [progressIndex, setProgressIndex] = useState(0);
   const [saveOpen, setSaveOpen] = useState(false);
   const [savedTo, setSavedTo] = useState(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const [askBody, setAskBody] = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [fixtureIndex, setFixtureIndex] = useState(0);
   const cameraRef = useRef(null);
   const pollTimer = useRef(null);
@@ -178,9 +184,52 @@ export default function CameraModal() {
     }
   };
 
+  /**
+   * Draft the help post, then show it for review.
+   *
+   * Nothing is posted here. The draft is written from the diagnosis the user is
+   * already looking at, and it goes out only once they have read it and pressed
+   * post — their name is on it. A drafting failure is not a dead end: the sheet
+   * still opens, with the plain fallback wording to edit.
+   */
   const askCommunity = async () => {
-    const res = await client.diagnoses.escalate(diagnosis.id);
+    setAskOpen(true);
+    setDrafting(true);
+    const res = await client.posts.draft({ diagnosis: diagnosis?.result ?? null });
+    setDrafting(false);
+    if (res.ok) setAskBody(res.data.body);
+  };
+
+  const postToCommunity = async () => {
+    setAsking(true);
+    const res = await client.diagnoses.escalate(diagnosis.id, { body: askBody.trim() });
+    setAsking(false);
+    setAskOpen(false);
     if (res.ok) router.push(`/post/${res.data.id}`);
+  };
+
+  /**
+   * Finish a scan.
+   *
+   * A scan is about a plant, so ending one lands on that plant's page rather
+   * than dropping the user back where they started. `savedTo` covers the scan
+   * they just attached; `plantId` covers a scan launched from a plant in the
+   * first place. With neither there is no plant to show — the scan was a
+   * one-off lookup — so fall back to going back.
+   */
+  const finish = () => {
+    const target = savedTo ?? plantId;
+    if (target) {
+      // A scan launched from a plant is attached at creation and never passes
+      // through `attach`, so nothing has invalidated its timeline yet. Without
+      // this the plant page can open on a cached list missing the scan that
+      // was just run.
+      queryClient.invalidateQueries({ queryKey: ['timeline', target] });
+      router.replace(`/plant/${target}`);
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
   };
 
   const goToNewPlant = () => {
@@ -188,6 +237,9 @@ export default function CameraModal() {
     const query = [
       topCandidate?.speciesId ? `speciesId=${topCandidate.speciesId}` : null,
       imageUri ? `photoUri=${encodeURIComponent(imageUri)}` : null,
+      // Carries the scan itself — health findings and care plan included — so
+      // the new plant keeps them instead of starting with an empty timeline.
+      diagnosis?.id ? `diagnosisId=${diagnosis.id}` : null,
     ]
       .filter(Boolean)
       .join('&');
@@ -363,7 +415,9 @@ export default function CameraModal() {
                 disabled={!candidate.speciesId}
                 onPress={() => {
                   router.push(
-                    `/add-plant?speciesId=${candidate.speciesId}&photoUri=${encodeURIComponent(imageUri ?? '')}`,
+                    `/add-plant?speciesId=${candidate.speciesId}` +
+                      `&photoUri=${encodeURIComponent(imageUri ?? '')}` +
+                      (diagnosis?.id ? `&diagnosisId=${diagnosis.id}` : ''),
                   );
                 }}
               >
@@ -448,7 +502,7 @@ export default function CameraModal() {
             testID="diagnose-done"
             variant="ghost"
             label={t('diagnose.done')}
-            onPress={() => router.back()}
+            onPress={finish}
           />
         </View>
       </ScrollView>
@@ -482,6 +536,50 @@ export default function CameraModal() {
               variant="ghost"
               label={t('diagnose.newPlant')}
               onPress={goToNewPlant}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={askOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAskOpen(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <Pressable style={styles.backdropTouch} onPress={() => setAskOpen(false)} />
+          <View style={styles.sheet}>
+            <Text style={[styles.sheetTitle, { fontFamily: displayFont }]}>
+              {t('diagnose.askCommunity')}
+            </Text>
+            {drafting ? (
+              <ActivityIndicator testID="ask-drafting" color={colors.primary} />
+            ) : (
+              // Fades in as it replaces the spinner, so the drafted text settles
+              // before the user reaches for it rather than snapping into place.
+              <Reveal>
+                <Field
+                  testID="ask-body"
+                  label={t('diagnose.askReview')}
+                  placeholder={t('compose.placeholder')}
+                  value={askBody}
+                  onChangeText={setAskBody}
+                  multiline
+                />
+              </Reveal>
+            )}
+            <Button
+              testID="ask-post"
+              label={t('compose.submit')}
+              onPress={postToCommunity}
+              disabled={drafting || asking || !askBody.trim()}
+            />
+            <Button
+              testID="ask-cancel"
+              variant="ghost"
+              label={t('camera.close')}
+              onPress={() => setAskOpen(false)}
             />
           </View>
         </View>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { Screen } from '../src/components/Screen.js';
 import { Card } from '../src/components/Card.js';
 import { Button } from '../src/components/Button.js';
 import { Field } from '../src/components/Field.js';
+import { Reveal } from '../src/components/Reveal.js';
 import { colors, fonts, radii, spacing, typeScale } from '../src/theme.js';
 
 const MAX_IMAGES = 3;
@@ -29,6 +30,53 @@ export default function ComposeScreen() {
   const [pending, setPending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  // Bumped only when a draft lands, and used as the editor's key so it fades in
+  // with the new text. Keying on the body itself would remount the input on
+  // every keystroke and steal focus mid-sentence.
+  const [draftVersion, setDraftVersion] = useState(0);
+
+  // Only fetched once the picker opens — most posts are written by hand.
+  const plantsQuery = useQuery({
+    queryKey: ['plants'],
+    enabled: draftOpen,
+    queryFn: () => client.plants.list().then((res) => (res.ok ? res.data : [])),
+  });
+  const plants = plantsQuery.data ?? [];
+
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  /**
+   * Draft a post about one plant and drop it in the editor.
+   *
+   * The draft is never posted for the user — it fills the field, they edit it,
+   * and the existing submit path runs unchanged. Machine-written words go out
+   * under someone's name only after they have read them.
+   * @param {object} plant
+   */
+  const draftFor = async (plant) => {
+    setDrafting(true);
+    setError(null);
+    const res = await client.posts.draft({
+      plant: {
+        nickname: plant.nickname,
+        ...(plant.speciesName && { speciesName: plant.speciesName }),
+        ...(plant.createdAt && {
+          ageDays: Math.max(0, Math.round((Date.now() - Date.parse(plant.createdAt)) / DAY_MS)),
+        }),
+        ...(plant.lastWateredAt && { lastWateredAt: plant.lastWateredAt }),
+      },
+    });
+    setDrafting(false);
+    setDraftOpen(false);
+    if (!res.ok) {
+      setError(res.error.message);
+      return;
+    }
+    setBody(res.data.body);
+    setDraftVersion((version) => version + 1);
+  };
 
   const addImage = async () => {
     if (images.length >= MAX_IMAGES) return;
@@ -89,13 +137,23 @@ export default function ComposeScreen() {
     <Screen edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.title, { fontFamily: displayFont }]}>{t('compose.title')}</Text>
-        <Field
-          testID="compose-body"
-          label={t('compose.title')}
-          placeholder={t('compose.placeholder')}
-          value={body}
-          onChangeText={setBody}
-          multiline
+        <Reveal key={draftVersion}>
+          <Field
+            testID="compose-body"
+            label={t('compose.title')}
+            placeholder={t('compose.placeholder')}
+            value={body}
+            onChangeText={setBody}
+            multiline
+          />
+        </Reveal>
+        <Button
+          testID="compose-draft"
+          variant="ghost"
+          label={drafting ? t('compose.drafting') : t('compose.draftForMe')}
+          onPress={() => setDraftOpen(true)}
+          disabled={drafting}
+          style={styles.rowButton}
         />
         {images.length > 0 ? (
           <View style={styles.thumbRow}>
@@ -143,6 +201,39 @@ export default function ComposeScreen() {
           />
         </Card>
       </ScrollView>
+
+      <Modal
+        visible={draftOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDraftOpen(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <Pressable style={styles.backdropTouch} onPress={() => setDraftOpen(false)} />
+          <View style={styles.sheet}>
+            <Text style={[styles.sheetTitle, { fontFamily: displayFont }]}>
+              {t('compose.draftPickPlant')}
+            </Text>
+            {plants.map((plant) => (
+              <Pressable
+                key={plant.id}
+                testID={`draft-plant-${plant.id}`}
+                accessibilityRole="button"
+                onPress={() => draftFor(plant)}
+              >
+                <Card style={styles.rowCard}>
+                  <Text style={styles.rowName}>{plant.nickname}</Text>
+                </Card>
+              </Pressable>
+            ))}
+            {plants.length === 0 ? (
+              <Text testID="draft-no-plants" style={styles.sheetHint}>
+                {t('compose.draftNoPlants')}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -161,6 +252,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdropTouch: {
+    flex: 1,
+  },
+  sheet: {
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    gap: spacing.sm,
+    padding: spacing.lg,
+  },
+  sheetTitle: {
+    color: colors.ink,
+    fontSize: typeScale.heading,
+    marginBottom: spacing.sm,
+  },
+  sheetHint: {
+    color: colors.mutedText,
+    fontFamily: fonts.body,
+    fontSize: typeScale.body,
+  },
+  rowCard: {
+    marginBottom: spacing.sm,
+  },
+  rowName: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemi,
+    fontSize: typeScale.body,
   },
   thumb: {
     borderRadius: radii.md,

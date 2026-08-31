@@ -76,6 +76,28 @@ export function runClientContract(
       expect(Date.parse(res.data.nextDueAt) - Date.parse(res.data.wateredAt)).toBe(17 * DAY_MS);
     });
 
+    it('waters on the custom schedule once one is set', async () => {
+      const client = makeClient();
+      // p1 is basil: species default is 2 days for a COASTAL user.
+      const before = await settle(client.plants.markWatered('p1'));
+      expect(Date.parse(before.data.nextDueAt) - Date.parse(before.data.wateredAt)).toBe(2 * DAY_MS);
+
+      await settle(client.schedules.create('p1', { type: 'WATER', intervalDays: 5 }));
+
+      // The grower is looking at the actual pot; their interval wins from here.
+      const after = await settle(client.plants.markWatered('p1'));
+      expect(Date.parse(after.data.nextDueAt) - Date.parse(after.data.wateredAt)).toBe(5 * DAY_MS);
+    });
+
+    it('keeps using the species interval for a schedule with no custom days', async () => {
+      const client = makeClient();
+      // autoSchedule on the add-plant flow creates a WATER schedule with no
+      // intervalDays — that must not be read as "0" or override anything.
+      await settle(client.schedules.create('p1', { type: 'WATER' }));
+      const res = await settle(client.plants.markWatered('p1'));
+      expect(Date.parse(res.data.nextDueAt) - Date.parse(res.data.wateredAt)).toBe(2 * DAY_MS);
+    });
+
     it('returns a mixed, paginated plant timeline', async () => {
       const client = makeClient();
       const page1 = await settle(client.plants.timeline('p1', { limit: 1 }));
@@ -175,14 +197,22 @@ export function runClientContract(
       expect(tooEarly.error.code).toBe('VALIDATION');
       await wait(3100);
       await settle(client.diagnoses.get(created.data.id));
-      const post = await settle(client.diagnoses.escalate(created.data.id));
+      const post = await settle(
+        client.diagnoses.escalate(created.data.id, { body: 'Reviewed draft about my tomato.' }),
+      );
       expect(post.ok).toBe(true);
       expect(post.data.type).toBe('HELP');
+      // The reviewed text is what gets posted, not the canned fallback.
+      expect(post.data.body).toBe('Reviewed draft about my tomato.');
       expect(post.data.attachment).toMatchObject({
         imageUri: 'assets/demo/plant-2.jpg',
         topIssue: 'Early blight',
         confidence: 0.84,
       });
+      // Without a reviewed body it still works, using the plain fallback.
+      const plain = await settle(client.diagnoses.escalate(created.data.id));
+      expect(plain.data.body).toMatch(/Need help with my plant/);
+
       const helpFeed = await settle(client.posts.list({ type: 'HELP' }));
       expect(helpFeed.data.some((entry) => entry.id === post.data.id)).toBe(true);
     });
@@ -241,6 +271,29 @@ export function runClientContract(
       expect(empty.error.code).toBe('VALIDATION');
       const whitespace = await settle(client.posts.create({ body: '   ' }));
       expect(whitespace.error.code).toBe('VALIDATION');
+    });
+
+    it('drafts a post body without creating anything', async () => {
+      const client = makeClient();
+      const before = await settle(client.posts.list());
+
+      const draft = await settle(
+        client.posts.draft({ plant: { nickname: 'Minty', ageDays: 92 } }),
+      );
+      expect(draft.ok).toBe(true);
+      expect(typeof draft.data.body).toBe('string');
+      expect(draft.data.body.length).toBeGreaterThan(0);
+
+      // Drafting must never publish — the text goes to the composer, and the
+      // person decides whether it becomes a post.
+      const after = await settle(client.posts.list());
+      expect(after.data).toHaveLength(before.data.length);
+    });
+
+    it('rejects a draft with nothing to write about', async () => {
+      const client = makeClient();
+      const empty = await settle(client.posts.draft({}));
+      expect(empty.error.code).toBe('VALIDATION');
     });
 
     it('likes and comments on posts', async () => {

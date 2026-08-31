@@ -43,6 +43,12 @@ export default function AddPlantScreen() {
   const [suggestions, setSuggestions] = useState([]);
   const pollTimer = useRef(null);
 
+  // The scan this plant came from, from either entry point: a deep link out of
+  // the camera flow, or the identify-by-photo tab below. Attached to the plant
+  // once it exists, which is what carries the health findings and the care plan
+  // onto its timeline. Without it the scan is orphaned and unreachable.
+  const [diagnosisId, setDiagnosisId] = useState(null);
+
   const [nickname, setNickname] = useState('');
   const [autoSchedule, setAutoSchedule] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,6 +68,9 @@ export default function AddPlantScreen() {
       const res = await client.species.get(speciesId);
       if (cancelled || !res.ok) return;
       if (typeof params.photoUri === 'string' && params.photoUri) setPhotoUri(params.photoUri);
+      if (typeof params.diagnosisId === 'string' && params.diagnosisId) {
+        setDiagnosisId(params.diagnosisId);
+      }
       pick({
         speciesId,
         commonName: localName(res.data.commonNames, res.data.scientificName),
@@ -123,6 +132,9 @@ export default function AddPlantScreen() {
       setPhase('timeout');
       return;
     }
+    // Remembered so the finished scan follows the plant onto its timeline —
+    // previously this id lived only in the poll closure and was lost on save.
+    setDiagnosisId(created.data.id);
     poll(created.data.id, 0);
   };
 
@@ -153,6 +165,15 @@ export default function AddPlantScreen() {
     }
     if (autoSchedule) {
       await client.schedules.create(created.data.id, { type: 'WATER' });
+    }
+    if (diagnosisId) {
+      // Best effort: the plant exists and is on the dashboard either way. A
+      // failed attach costs the scan's history, not the plant, so it must not
+      // turn a successful save into an error the user has to act on.
+      const attached = await client.diagnoses.attach(diagnosisId, created.data.id);
+      if (attached.ok) {
+        queryClient.invalidateQueries({ queryKey: ['timeline', created.data.id] });
+      }
     }
     queryClient.invalidateQueries({ queryKey: ['plants'] });
     // Deep links land here with no history — fall back to the garden.
@@ -214,7 +235,11 @@ export default function AddPlantScreen() {
             thumbColor={colors.cream}
           />
         </View>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Text testID="confirm-error" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
         <Button
           testID="confirm-save"
           label={t('addPlant.save')}

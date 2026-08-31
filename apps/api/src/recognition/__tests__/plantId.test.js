@@ -73,7 +73,9 @@ describe('createPlantIdProvider', () => {
   it('returns a normalized result, not the raw payload', async () => {
     const result = await provider(fakeFetch())({ imageBase64: 'aGVsbG8=', mode: 'identify' });
 
-    expect(Object.keys(result)).toEqual(['species', 'health']);
+    // advice is defaulted in by the schema and stays null until the LLM pass.
+    expect(Object.keys(result)).toEqual(['species', 'health', 'advice']);
+    expect(result.advice).toBeNull();
     expect(result.species[0].scientificName).toBe('Ocimum basilicum');
   });
 

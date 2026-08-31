@@ -3,6 +3,7 @@ import {
   CreatePlantSchema,
   CreatePostSchema,
   CreateScheduleSchema,
+  DraftPostSchema,
   ErrorCode,
   RegisterDeviceSchema,
   SignupSchema,
@@ -376,7 +377,14 @@ export function createMockClient({ storage } = {}) {
           const species = store.species.find((entry) => entry.id === plant.speciesId);
           const waterEveryDays = species?.care.waterEveryDays ?? DEFAULT_WATER_EVERY_DAYS;
           const multiplier = species?.zoneMultipliers?.[user.climateZone] ?? 1;
-          const intervalDays = Math.max(1, Math.round(waterEveryDays * multiplier));
+          // A custom WATER schedule wins over the species default. The grower is
+          // looking at the actual pot, soil and window; the catalog is a guess
+          // for the species in the abstract. Without this the stepper on the
+          // plant screen silently reverted the moment they watered.
+          const custom = store.schedules.find(
+            (entry) => entry.plantId === plant.id && entry.type === 'WATER',
+          )?.intervalDays;
+          const intervalDays = custom ?? Math.max(1, Math.round(waterEveryDays * multiplier));
           const wateredAt = Date.now();
           plant.lastWateredAt = new Date(wateredAt).toISOString();
           plant.nextDueAt = new Date(wateredAt + intervalDays * DAY_MS).toISOString();
@@ -605,8 +613,17 @@ export function createMockClient({ storage } = {}) {
           return ok({ id: diagnosis.id, plantId: plant.id });
         });
       },
-      /** Turn a completed diagnosis into a community HELP post. */
-      escalate(id) {
+      /**
+       * Turn a completed diagnosis into a community HELP post.
+       *
+       * `body` is what the person actually wants to say — normally a drafted
+       * post they have read and edited. Without it, fall back to a plain
+       * sentence built from the top issue, so escalating still works when
+       * drafting is unavailable.
+       * @param {string} id
+       * @param {{body?: string}} [input]
+       */
+      escalate(id, input = {}) {
         return call(() => {
           const user = currentUser();
           if (!user) return notLoggedIn();
@@ -623,9 +640,11 @@ export function createMockClient({ storage } = {}) {
             id: makeId('post'),
             authorId: user.id,
             type: 'HELP',
-            body: topIssue
-              ? `Need help with my plant — the diagnosis suggests "${topIssue}". Any advice?`
-              : 'Need help figuring out what is wrong with my plant. Any advice?',
+            body:
+              input.body?.trim() ||
+              (topIssue
+                ? `Need help with my plant — the diagnosis suggests "${topIssue}". Any advice?`
+                : 'Need help figuring out what is wrong with my plant. Any advice?'),
             images: [diagnosis.imageUri],
             attachment: { imageUri: diagnosis.imageUri, topIssue, confidence },
             createdAt: new Date().toISOString(),
@@ -738,6 +757,40 @@ export function createMockClient({ storage } = {}) {
           return ok({
             items: all.slice(start, start + limit).map(commentView),
             nextCursor: nextIndex < all.length ? String(nextIndex) : null,
+          });
+        });
+      },
+      /**
+       * Draft a post body offline.
+       *
+       * The real draft is written by a model on the API; the mock composes a
+       * plausible one from the same inputs so the composer's "write it for me"
+       * button works in airplane mode, which the demo depends on.
+       * @param {{diagnosis?: object|null, plant?: object|null}} input
+       */
+      draft(input = {}) {
+        return call(() => {
+          const { data, error } = parseWith(DraftPostSchema, input);
+          if (error) return error;
+
+          const topIssue = data.diagnosis?.health?.issues?.[0] ?? null;
+          const species = data.diagnosis?.species?.[0];
+          const name = data.plant?.nickname ?? species?.commonNames?.[0] ?? 'my plant';
+
+          if (topIssue) {
+            return ok({
+              body:
+                `Something is wrong with ${name} — the app thinks it might be ` +
+                `${topIssue.name.toLowerCase()}. I have pulled off the worst leaves so far. ` +
+                `Has anyone dealt with this before?`,
+            });
+          }
+
+          const age = data.plant?.ageDays;
+          const howLong =
+            typeof age === 'number' && age >= 30 ? ` after ${Math.round(age / 30)} months` : '';
+          return ok({
+            body: `Look at ${name}${howLong} — finally filling out. Any tips for keeping it going?`,
           });
         });
       },

@@ -1,5 +1,6 @@
 import { ErrorCode, LOW_CONFIDENCE_THRESHOLD, fail, ok } from '@flora/shared';
 import { RecognitionProviderError } from '../../recognition/index.js';
+import { shouldAdvise } from '../../llm/careAdvice.js';
 import { resolveSpeciesId as defaultResolveSpeciesId } from '../species/catalog.js';
 import { CreateDiagnosisSchema, IdSchema, base64ByteLength, parseWith } from './validators.js';
 
@@ -34,6 +35,7 @@ function toView(row) {
  * @param {{
  *   store: ReturnType<import('./store.js').createDiagnosisStore>,
  *   recognize: (input: object) => Promise<object>,
+ *   advise?: (result: object, context: object) => Promise<object>,
  *   resolveSpeciesId?: (name: string) => (string|null),
  *   maxImageBytes: number,
  *   timeoutMs: number,
@@ -44,6 +46,7 @@ function toView(row) {
 export function createDiagnosisService({
   store,
   recognize,
+  advise,
   resolveSpeciesId = defaultResolveSpeciesId,
   maxImageBytes,
   timeoutMs,
@@ -59,15 +62,37 @@ export function createDiagnosisService({
   const inflight = new Map();
 
   /**
+   * Attach a care plan to a recognition result.
+   *
+   * Advice is an enhancement, never a gate: any failure here returns the result
+   * untouched with `advice: null`, and the mobile screen falls back to the
+   * provider's own treatmentHints. A diagnosis must never fail because the
+   * model was slow, refused, or is not configured.
+   *
+   * @param {import('@flora/shared/src/types.js').RecognitionResult} result
+   * @param {{climateZone?: string}} context
+   */
+  async function withAdvice(result, context) {
+    if (!advise || !shouldAdvise(result)) return result;
+    try {
+      return { ...result, advice: await advise(result, context) };
+    } catch (error) {
+      logger.error('[diagnoses] care advice failed, continuing without it:', error);
+      return result;
+    }
+  }
+
+  /**
    * Run recognition and write the outcome back. Never rejects — a diagnosis
    * that fails is a FAILED row, not an unhandled rejection that takes down the
    * process.
    * @param {string} id
-   * @param {{imageBase64: string, mode: string}} input
+   * @param {{imageBase64: string, mode: string, climateZone?: string}} input
    */
-  async function run(id, { imageBase64, mode }) {
+  async function run(id, { imageBase64, mode, climateZone }) {
     try {
-      const result = await recognize({ imageBase64, mode, resolveSpeciesId });
+      const recognized = await recognize({ imageBase64, mode, resolveSpeciesId });
+      const result = await withAdvice(recognized, { climateZone });
       store.update(id, {
         status: 'COMPLETE',
         result,
@@ -121,7 +146,11 @@ export function createDiagnosisService({
 
       inflight.set(
         row.id,
-        run(row.id, { imageBase64: data.imageBase64, mode: data.mode }),
+        run(row.id, {
+          imageBase64: data.imageBase64,
+          mode: data.mode,
+          climateZone: data.climateZone,
+        }),
       );
 
       return ok({ id: row.id, status: row.status });

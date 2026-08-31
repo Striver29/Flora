@@ -1,8 +1,7 @@
 # Flora mobile
 
 Expo app (JavaScript, expo-router). Runs entirely on the **mock client** by default —
-no backend, no network needed. `EXPO_PUBLIC_API_MODE=mock` is the default; `live`
-switches to the real API client (a later phase).
+real API client (a later phase).
 
 ## Expo Go quickstart
 
